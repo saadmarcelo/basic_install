@@ -6,8 +6,10 @@
 
 - name: Installing Homebrew
   become: false
-  ansible.builtin.shell: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  ansible.builtin.shell: curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
   when: homebrew_check.stat.exists
+  args:
+    executable: /bin/bash
 
 - name: Updating Homebrew
   community.general.homebrew:
