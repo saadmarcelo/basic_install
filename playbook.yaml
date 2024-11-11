@@ -1,0 +1,17 @@
+---
+- name: Verificar o sistema operacional e chamar o playbook correto
+  hosts: localhost
+  gather_facts: true
+  tasks:
+    - name: Incluir tarefas para macOS se o sistema for macOS
+      ansible.builtin.include_tasks: macOS.yaml
+      when: ansible_facts['os_family'] == 'Darwin'
+
+    - name: Incluir tarefas para Linux se o sistema for Linux
+      ansible.builtin.include_tasks: linux.yaml
+      when: ansible_facts['os_family'] == 'Linux'
+
+    - name: Mensagem para sistema operacional não suportado
+      ansible.builtin.debug:
+        msg: "Sistema operacional não suportado"
+      when: ansible_facts['os_family'] not in ['Darwin', 'Linux']
