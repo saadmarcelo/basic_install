@@ -5,6 +5,7 @@
   register: homebrew_check
 
 - name: Installing Homebrew
+  become: false
   ansible.builtin.shell: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   when: homebrew_check.stat.exists
 
