@@ -4,11 +4,11 @@
   gather_facts: true
   tasks:
     - name: Incluir tarefas para macOS se o sistema for macOS
-      ansible.builtin.include_tasks: macOS.yaml
+      ansible.builtin.include_tasks: files/macOS.yaml
       when: ansible_facts['os_family'] == 'Darwin'
 
     - name: Incluir tarefas para Linux se o sistema for Linux
-      ansible.builtin.include_tasks: linux.yaml
+      ansible.builtin.include_tasks: files/linux.yaml
       when: ansible_facts['os_family'] == 'Linux'
 
     - name: Mensagem para sistema operacional não suportado

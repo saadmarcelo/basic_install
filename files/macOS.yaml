@@ -1,0 +1,44 @@
+---
+- name: Ensuring Homebrew Is Installed
+  ansible.builtin.stat:
+    path: /opt/homebrew/bin/brew
+  register: homebrew_check
+
+- name: Installing Homebrew
+  ansible.builtin.shell: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  when: homebrew_check.stat.exists
+
+- name: Updating Homebrew
+  community.general.homebrew:
+    update_homebrew: true
+  when: homebrew_check.stat.exists
+
+# - name: Upgrading Homebrew Packages
+#   community.general.homebrew:
+#     upgrade_all: "{{ upgrade_homebrew_packages }}"
+#   register: result
+#   until: result is successful
+#   when: homebrew_check.stat.exists
+
+- name: Installing Homebrew Cask Packages
+  homebrew_cask:
+    name: "{{ brew_cask_packages }}"
+    state: present
+  register: result
+  until: result is successful
+  when: homebrew_check.stat.exists
+  vars:
+    brew_cask_packages:
+      - font-sauce-code-pro-nerd-font
+      - rectangle
+
+- name: Installing Homebrew Packages
+  community.general.homebrew:
+    name: "{{ brew_packages }}"
+    state: present
+  register: result
+  until: result is successful
+  when: homebrew_check.stat.exists
+  vars:
+    brew_packages:
+      - wget
