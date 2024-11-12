@@ -1,0 +1,21 @@
+---
+- name: Installing zsh Packages
+  community.general.homebrew:
+    name: "{{ brew_packages }}"
+    state: present
+  register: result
+  until: result is successful
+  vars:
+    brew_packages:
+      - zsh
+      - zsh-autosuggestions
+      - zsh-syntax-highlighting
+
+- name: Change zsh to default shell
+  ansible.builtin.shell: sudo chsh -s $(which zsh)
+
+- name: Instal oh my zsh
+  ansible.builtin.shell: sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+# TODO: install oy my zsh
+# TODO: configure my alias
+# TODO: clone dotfiles repository
