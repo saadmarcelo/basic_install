@@ -34,6 +34,7 @@
     brew_cask_packages:
       - font-sauce-code-pro-nerd-font
       - rectangle
+      - kitty
 
 - name: Installing Homebrew Packages
   community.general.homebrew:
@@ -45,3 +46,12 @@
   vars:
     brew_packages:
       - wget
+      - bat
+      - eza
+      - git
+      - jq
+      - lazygit
+      - stow
+      - tmux
+      - zoxide
+      - yazi
