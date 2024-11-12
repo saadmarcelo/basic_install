@@ -7,7 +7,7 @@
 - name: Installing Homebrew
   become: false
   ansible.builtin.shell: curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
-  when: homebrew_check.stat.exists
+  when: not homebrew_check.stat.exists
   args:
     executable: /bin/bash
 
@@ -49,6 +49,7 @@
       - bat
       - eza
       - git
+      - fzf
       - jq
       - lazygit
       - stow
