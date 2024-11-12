@@ -35,5 +35,39 @@
     repo: "https://github.com/saadmarcelo/dotfiles.git"
     dest: "{{ user_home }}/dotfiles"
     version: main
+    clone: true
     update: false
 # TODO: configure my alias
+
+# Tmux plugins
+- name: Clone tmux tpm repository
+  ansible.builtin.git:
+    repo: "https://github.com/tmux-plugins/tpm"
+    dest: "{{ user_home }}/.tmux/plugins/tpm"
+    version: main
+    clone: true
+    update: false
+
+- name: Source de tmux plugin
+  ansible.builtin.shell: tmux source ~/.tmux.conf
+
+# Stow
+- name: Link nvim
+  ansible.builtin.shell: stow nvim
+  args:
+    chdir: "{{ user_home }}/dotfiles"
+
+- name: Link tmux
+  ansible.builtin.shell: stow tmux
+  args:
+    chdir: "{{ user_home }}/dotfiles"
+
+- name: Link zshrc
+  ansible.builtin.shell: stow zshrc
+  args:
+    chdir: "{{ user_home }}/dotfiles"
+
+- name: Link kitty
+  ansible.builtin.shell: stow kitty
+  args:
+    chdir: "{{ user_home }}/dotfiles"
