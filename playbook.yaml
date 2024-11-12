@@ -3,8 +3,8 @@
   hosts: localhost
   gather_facts: true
   tasks:
-    - name: Incluir tarefas para macOS se o sistema for macOS
-      ansible.builtin.include_tasks: roles/macOS.yaml
+    - name: Incluir homebrew tasks para macOS
+      ansible.builtin.include_tasks: roles/brew_macOS.yaml
       when: ansible_facts['os_family'] == 'Darwin'
 
     - name: Incluir tarefas para Linux se o sistema for Linux
