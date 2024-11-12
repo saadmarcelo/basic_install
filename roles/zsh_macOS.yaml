@@ -14,8 +14,26 @@
 - name: Change zsh to default shell
   ansible.builtin.shell: sudo chsh -s $(which zsh)
 
+# TODO: install oy my zsh
+
+- name: Definir variável com o diretório home do usuário
+  set_fact:
+    user_home: "{{ ansible_env.HOME }}"
+
+- name: Ensuring oh my zsh Is Installed
+  ansible.builtin.stat:
+    path: "{{ user_home }}/.oh-my-zsh/"
+  register: oh_my_zsh_check
+
 - name: Instal oh my zsh
   ansible.builtin.shell: sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-# TODO: install oy my zsh
+  when: not oh_my_zsh_check.stat.exists
+
+  # TODO: clone dotfiles repository
+- name: Clone dotfiles repository
+  ansible.builtin.git:
+    repo: "https://github.com/saadmarcelo/dotfiles.git"
+    dest: "{{ user_home }}/dotfiles"
+    version: main
+    update: false
 # TODO: configure my alias
-# TODO: clone dotfiles repository
