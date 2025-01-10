@@ -1,0 +1,35 @@
+---
+# Instalar programas basicos
+- name: Instalar programas
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: latest
+  loop:
+    - zsh
+    - zoxide
+    - stow
+
+# Mudar para o zsh
+- name: Definir o zsh como shell padrao do usuário
+  ansible.builtin.command: chsh -s /bin/zsh {{ ansible_user }}
+
+# Garantir que o zsh esta no /etc/shells
+- name: Garantir que o zsh esta no /etc/shells
+  ansible.builtin.lineinfile:
+    path: /etc/shells
+    line: /bin/zsh
+    state: present
+
+# TODO: testar em uma nova isntalacao se muda por padrao o shell
+# - name: Forçar recarregamento do shell
+#   ansible.builtin.shell: zsh
+#
+# Verifica o shell atual
+- name: Verificar o shell atual
+  ansible.builtin.command: echo $SHELL
+  register: current_shell
+
+# Exibir o shell
+- name: Exibir o shell atual
+  ansible.builtin.debug:
+    msg: "shell atual: {{ current_shell.stdout }}"
