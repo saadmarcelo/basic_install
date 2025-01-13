@@ -12,7 +12,7 @@
 - name: Install packages
   ansible.builtin.apt:
     name: "{{ item }}"
-    state: latest
+    state: present
   loop:
     - wget
     - fontconfig
@@ -67,7 +67,13 @@
     dest: /usr/bin/bat
     state: link
 # TODO: clone dotfiles repository
-# TODO: tmux config
+
+- name: Clonar repositório dotfiles
+  ansible.builtin.git:
+    repo: https://github.com/saadmarcelo/dotfiles.git
+    dest: /home/{{ ansible_user }}/dotfiles/
+    update: true
+  become: false
 
 # TODO: install font
 
@@ -93,4 +99,53 @@
   ansible.builtin.file:
     path: /tmp/SourceCodePro.zip
     state: absent
+
+# TODO: tmux config
+
+# Create .tmux folder
+- name: Create .tmux folder
+  ansible.builtin.file:
+    path: /home/{{ ansible_user }}/.tmux/
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    state: directory
+    mode: "0755"
+
+# Download TPM plugin
+- name: Download TPM plugin
+  ansible.builtin.git:
+    repo: https://github.com/tmux-plugins/tpm.git
+    dest: /home/{{ ansible_user }}/.tmux/plugins/tpm
+    update: true
+  become: false
+
+# Garantir permissao de execucao do scritp de instalcao dos plugins do tmux
+- name: Garantir permissão de execução para o script install_plugins
+  ansible.builtin.file:
+    path: /home/{{ ansible_user }}/.tmux/plugins/tpm/bin/install_plugins
+    mode: "0755"
+    state: file
+  become: false
+
+- name: Instalar plugins do Tmux
+  ansible.builtin.shell: /home/{{ ansible_user }}/.tmux/plugins/tpm/bin/install_plugins
+  args:
+    executable: /bin/bash
+  environment:
+    TMUX_PLUGIN_MANAGER_PATH: /home/{{ ansible_user }}/.tmux/plugins
+    HOME: /home/{{ ansible_user }}
+    USER: "{{ ansible_user }}"
+  become: false
+
 # TODO: stow config
+
+# Criar os links simbolicos com o stow
+- name: Criar os links simbolicos com o stow
+  ansible.builtin.shell: stow -d /home/{{ ansible_user }}/dotfiles -t /home/{{ ansible_user }} {{ item }}
+  become: false
+  args:
+    executable: /bin/bash
+  loop:
+    - tmux
+    - nvim
+    - zshrc
