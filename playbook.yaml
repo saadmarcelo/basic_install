@@ -13,7 +13,7 @@
       when: ansible_facts['os_family'] == 'Darwin'
 
     - name: Incluir tarefas para Linux se o sistema for Linux
-      ansible.builtin.include_tasks: files/linux.yaml
+      ansible.builtin.include_tasks: roles/linux.yaml
       when: ansible_facts['os_family'] == 'Debian'
 
     - name: Mensagem para sistema operacional não suportado

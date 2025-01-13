@@ -1,28 +1,96 @@
 ---
 # TODO: linux config
 # TODO: install packages
+# Update repostorio
 - name: Update apt
   ansible.builtin.apt:
     update_cache: true
     force_apt_get: true
     cache_valid_time: 3600
 
+# Instala os pacotes necessarios
 - name: Install packages
   ansible.builtin.apt:
-    name: "{{ packages }}"
+    name: "{{ item }}"
     state: latest
-    vars:
-      packages:
-        - wget
-        - neovim
-        - git
-        - stow
-        - tmux
-        - zsh
-        - bat
-# TODO: zsh config
+  loop:
+    - wget
+    - fontconfig
+    # - neovim
+    - git
+    - stow
+    - tmux
+    - zsh
+    - bat
+    - zoxide
+    - unzip
+
+# Mudar para o zsh
+- name: Definir o zsh como shell padrao do usuário
+  ansible.builtin.command: chsh -s /bin/zsh {{ ansible_user }}
+
+# Garantir que o zsh esta no /etc/shells
+- name: Garantir que o zsh esta no /etc/shells
+  ansible.builtin.lineinfile:
+    path: /etc/shells
+    line: /bin/zsh
+    state: present
+
+# Verifica o shell atual
+- name: Verificar o shell atual
+  ansible.builtin.command: echo $SHELL
+  register: current_shell
+
+# Exibir o shell
+- name: Exibir o shell atual
+  ansible.builtin.debug:
+    msg: "shell atual: {{ current_shell.stdout }}"
+
 # TODO: oh my zsh config
+
+# Download oh my zsh script
+- name: Download Oh My Zsh installation script
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh
+    dest: /tmp/install_ohmyzsh.sh
+
+# Install oh my zsh
+- name: Run Oh My Zsh installation script
+  ansible.builtin.command: sh /tmp/install_ohmyzsh.sh --unattended
+  register: ohmyzsh_result
+  failed_when: "'FAILED' in ohmyzsh_result.stderr"
+
+# Criar um link simbolico para o bat
+- name: Criar link simbolico para o bat
+  ansible.builtin.file:
+    src: /usr/bin/batcat
+    dest: /usr/bin/bat
+    state: link
 # TODO: clone dotfiles repository
 # TODO: tmux config
+
 # TODO: install font
+
+# Download saucedcodepro font
+- name: Baixar SauceCodePro Nerd Font
+  ansible.builtin.get_url:
+    url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/SourceCodePro.zip
+    dest: /tmp/SourceCodePro.zip
+
+# Unzip font file
+- name: Descompactar o arquivo da fonte
+  ansible.builtin.unarchive:
+    src: /tmp/SourceCodePro.zip
+    dest: /usr/local/share/fonts
+    remote_src: true
+
+# update font cache
+- name: Atualizar cache de fontes
+  ansible.builtin.command: fc-cache -fv
+
+# Remove ZIP file
+- name: Remover o arquivo ZIP
+  ansible.builtin.file:
+    path: /tmp/SourceCodePro.zip
+    state: absent
 # TODO: stow config
