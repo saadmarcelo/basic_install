@@ -140,12 +140,25 @@
 # TODO: stow config
 
 # Criar os links simbolicos com o stow
-- name: Criar os links simbolicos com o stow
-  ansible.builtin.shell: stow -d /home/{{ ansible_user }}/dotfiles -t /home/{{ ansible_user }} {{ item }}
-  become: false
+- name: Criar os links simbólicos com o stow para ansible_user e root
+  ansible.builtin.shell: stow -d /home/{{ item.user }}/dotfiles -t /home/{{ item.user }} {{ item.config }}
+  become: "{{ item.user == 'root' }}"
   args:
     executable: /bin/bash
   loop:
-    - tmux
-    - nvim
-    - zshrc
+    - { user: "{{ ansible_user }}", config: "tmux" }
+    - { user: "{{ ansible_user }}", config: "nvim" }
+    - { user: "{{ ansible_user }}", config: "zshrc" }
+    - { user: "root", config: "tmux" }
+    - { user: "root", config: "nvim" }
+    - { user: "root", config: "zshrc" }
+# # Criar os links simbolicos com o stow
+# - name: Criar os links simbolicos com o stow
+#   ansible.builtin.shell: stow -d /home/{{ ansible_user }}/dotfiles -t /home/{{ ansible_user }} {{ item }}
+#   become: false
+#   args:
+#     executable: /bin/bash
+#   loop:
+#     - tmux
+#     - nvim
+#     - zshrc
