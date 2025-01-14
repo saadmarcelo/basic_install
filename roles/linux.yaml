@@ -1,6 +1,21 @@
 ---
 # TODO: linux config
 # TODO: install packages
+
+# Installar o node para poder instalar as linter do Mason
+- name: Adicionar repositório NodeSource para Node.js 18.x
+  ansible.builtin.shell: |
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+  args:
+    executable: /bin/bash
+
+# adicionar o repositorio do nvim
+- name: Adicionar o PPA oficial do Neovim
+  ansible.builtin.apt_repository:
+    repo: ppa:neovim-ppa/unstable
+    state: present
+    update_cache: true
+
 # Update repostorio
 - name: Update apt
   ansible.builtin.apt:
@@ -16,7 +31,7 @@
   loop:
     - wget
     - fontconfig
-    # - neovim
+    - neovim
     - git
     - stow
     - tmux
@@ -24,6 +39,10 @@
     - bat
     - zoxide
     - unzip
+    - software-properties-common
+    - eza
+    - golang-go
+    - nodejs
 
 # Mudar para o zsh
 - name: Definir o zsh como shell padrao do usuário
@@ -59,6 +78,31 @@
   ansible.builtin.command: sh /tmp/install_ohmyzsh.sh --unattended
   register: ohmyzsh_result
   failed_when: "'FAILED' in ohmyzsh_result.stderr"
+  become: false
+
+# Install zsh=zsh-autosuggestions
+- name: Install zsh-autosuggestions plugin # noqa: latest
+  ansible.builtin.git:
+    repo: https://github.com/zsh-users/zsh-autosuggestions
+    dest: ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+    depth: 1
+  become: false
+
+# Install zsh-completions
+- name: Install zsh-completions plugin # noqa: latest
+  ansible.builtin.git:
+    repo: https://github.com/zsh-users/zsh-completions
+    dest: ~/.oh-my-zsh/custom/plugins/zsh-completions
+    depth: 1
+  become: false
+
+# Install zsh-syntax-highlighting
+- name: Install zsh-syntax-highlighting plugin # noqa: latest
+  ansible.builtin.git:
+    repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
+    dest: ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+    depth: 1
+  become: false
 
 # Criar um link simbolico para o bat
 - name: Criar link simbolico para o bat
@@ -127,6 +171,7 @@
     state: file
   become: false
 
+# Instalar plugins do Tmux
 - name: Instalar plugins do Tmux
   ansible.builtin.shell: /home/{{ ansible_user }}/.tmux/plugins/tpm/bin/install_plugins
   args:
@@ -137,28 +182,26 @@
     USER: "{{ ansible_user }}"
   become: false
 
+# Instalar o fzf
+- name: Instalar o fzf
+  ansible.builtin.unarchive:
+    src: https://github.com/junegunn/fzf/releases/download/v0.57.0/fzf-0.57.0-linux_amd64.tar.gz
+    dest: /usr/bin/
+    remote_src: true
+
 # TODO: stow config
 
 # Criar os links simbolicos com o stow
 - name: Criar os links simbólicos com o stow para ansible_user e root
-  ansible.builtin.shell: stow -d /home/{{ item.user }}/dotfiles -t /home/{{ item.user }} {{ item.config }}
-  become: "{{ item.user == 'root' }}"
+  ansible.builtin.shell: stow -d /home/{{ ansible_user }}/dotfiles -t {{ item.user }}/ {{ item.config }}
+  become: true
+  become_user: "{{ 'root' if item.user == '/root' else ansible_user }}"
   args:
     executable: /bin/bash
   loop:
-    - { user: "{{ ansible_user }}", config: "tmux" }
-    - { user: "{{ ansible_user }}", config: "nvim" }
-    - { user: "{{ ansible_user }}", config: "zshrc" }
-    - { user: "root", config: "tmux" }
-    - { user: "root", config: "nvim" }
-    - { user: "root", config: "zshrc" }
-# # Criar os links simbolicos com o stow
-# - name: Criar os links simbolicos com o stow
-#   ansible.builtin.shell: stow -d /home/{{ ansible_user }}/dotfiles -t /home/{{ ansible_user }} {{ item }}
-#   become: false
-#   args:
-#     executable: /bin/bash
-#   loop:
-#     - tmux
-#     - nvim
-#     - zshrc
+    - { user: "/home/{{ ansible_user }}", config: "tmux" }
+    - { user: "/home/{{ ansible_user }}", config: "nvim" }
+    - { user: "/home/{{ ansible_user }}", config: "zshrc" }
+    - { user: "/root", config: "tmux" }
+    - { user: "/root", config: "nvim" }
+    - { user: "/root", config: "zshrc" }
