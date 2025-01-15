@@ -23,6 +23,12 @@
     force_apt_get: true
     cache_valid_time: 3600
 
+# Remover versão antiga nvim
+- name: Remover a versão antiga nvim
+  ansible.builtin.apt:
+    name: neovim
+    state: absent
+
 # Instala os pacotes necessarios
 - name: Install packages
   ansible.builtin.apt:
@@ -43,6 +49,48 @@
     - eza
     - golang-go
     - nodejs
+    - locales
+    - make
+    - python3
+    - python3-pip
+
+# Configurar o locale para en_us (fzf dependencies)
+- name: Configurar locale para en_US.UTF-8
+  command: locale-gen en_US.UTF-8
+  args:
+    creates: /usr/lib/locale/en_US.utf8
+
+# Definir locale como padrao (fzf dependencies)
+- name: Definir locale padrão no sistema
+  lineinfile:
+    path: /etc/default/locale
+    line: "{{ item }}"
+    create: true
+  loop:
+    - "LANG=en_US.UTF-8"
+    - "LANGUAGE=en_US.UTF-8"
+    - "LC_ALL=en_US.UTF-8"
+
+# Aplicar configurações do locale (fzf dependencies)
+- name: Aplicar configurações de locale
+  command: update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+  when: ansible_os_family == 'Debian'
+
+# Recarregar o locale (fzf dependencies)
+- name: Recarregar locale
+  shell: source /etc/default/locale
+  args:
+    executable: /bin/bash
+
+# TODO: clone dotfiles repository
+
+# Clonar repositorio dotfiles
+- name: Clonar repositório dotfiles
+  ansible.builtin.git:
+    repo: https://github.com/saadmarcelo/dotfiles.git
+    dest: /home/{{ ansible_user }}/dotfiles/
+    update: true
+  become: false
 
 # Mudar para o zsh
 - name: Definir o zsh como shell padrao do usuário
@@ -73,36 +121,67 @@
     url: https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh
     dest: /tmp/install_ohmyzsh.sh
 
-# Install oh my zsh
-- name: Run Oh My Zsh installation script
-  ansible.builtin.command: sh /tmp/install_ohmyzsh.sh --unattended
-  register: ohmyzsh_result
-  failed_when: "'FAILED' in ohmyzsh_result.stderr"
-  become: false
+# Define lista de usuarios a serem instalados
+- name: Define list of users
+  ansible.builtin.set_fact:
+    users:
+      - { name: "{{ ansible_user }}", home: "/home/{{ ansible_user }}" }
+      - { name: "root", home: "/root" }
 
-# Install zsh=zsh-autosuggestions
-- name: Install zsh-autosuggestions plugin # noqa: latest
+# Check se oh my zsh ja esta instalado
+- name: Check if Oh My Zsh is already installed
+  ansible.builtin.stat:
+    path: "{{ item.home }}/.oh-my-zsh"
+  register: ohmyzsh_status
+  loop: "{{ users }}"
+
+# Install Oh My Zsh for each user
+- name: Install Oh My Zsh for users
+  ansible.builtin.shell: |
+    export HOME={{ item.home }}
+    export USER={{ item.name }}
+    sh /tmp/install_ohmyzsh.sh --unattended
+  args:
+    executable: /bin/bash
+  loop: "{{ users }}"
+  become_user: "{{ item.name }}"
+  environment:
+    ZSH: "{{ item.home }}/.oh-my-zsh"
+  when: not (ohmyzsh_status.results | selectattr('item.name', 'equalto', item.name) | first).stat.exists
+
+# Clone zsh-autosuggestions plugin
+- name: Clone zsh-autosuggestions plugin
   ansible.builtin.git:
     repo: https://github.com/zsh-users/zsh-autosuggestions
-    dest: ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+    dest: "{{ item.home }}/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
     depth: 1
-  become: false
+  loop: "{{ users }}"
+  become: true
 
-# Install zsh-completions
-- name: Install zsh-completions plugin # noqa: latest
+# Clone zsh-completions plugin
+- name: Clone zsh-completions plugin
   ansible.builtin.git:
     repo: https://github.com/zsh-users/zsh-completions
-    dest: ~/.oh-my-zsh/custom/plugins/zsh-completions
+    dest: "{{ item.home }}/.oh-my-zsh/custom/plugins/zsh-completions"
     depth: 1
-  become: false
+  loop: "{{ users }}"
+  become: true
 
-# Install zsh-syntax-highlighting
-- name: Install zsh-syntax-highlighting plugin # noqa: latest
+# Clone zsh-syntax-highlighting plugin
+- name: Clone zsh-syntax-highlighting plugin
   ansible.builtin.git:
     repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
-    dest: ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+    dest: "{{ item.home }}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
     depth: 1
-  become: false
+  loop: "{{ users }}"
+  become: true
+
+# Set zsh as default shell for each user
+- name: Set zsh as default shell
+  ansible.builtin.shell: chsh -s $(which zsh) {{ item }}
+  loop:
+    - "{{ ansible_user }}"
+    - root
 
 # Criar um link simbolico para o bat
 - name: Criar link simbolico para o bat
@@ -110,14 +189,6 @@
     src: /usr/bin/batcat
     dest: /usr/bin/bat
     state: link
-# TODO: clone dotfiles repository
-
-- name: Clonar repositório dotfiles
-  ansible.builtin.git:
-    repo: https://github.com/saadmarcelo/dotfiles.git
-    dest: /home/{{ ansible_user }}/dotfiles/
-    update: true
-  become: false
 
 # TODO: install font
 
@@ -189,11 +260,31 @@
     dest: /usr/bin/
     remote_src: true
 
+# - name: Verificar se o arquivo .zshrc.pre-oh-my-zsh existe
+#   stat:
+#     path: ~/.zshrc.pre-oh-my-zsh
+#   register: pre_ohmyzsh_file
+#
+# - name: Mover .zshrc.pre-oh-my-zsh para .zshrc
+#   command: mv {{ item.home }}/.zshrc.pre-oh-my-zsh ~/.zshrc
+#   when: pre_ohmyzsh_file.stat.exists
+#   loop: "{{ users }}"
+#   become: "{{ item.name }}"
 # TODO: stow config
+
+- name: Remover ou renomear .zshrc existente
+  ansible.builtin.shell: |
+    if [ -f {{ item.user }}/.zshrc ] && [ ! -L {{ item.user }}/.zshrc ]; then
+      mv {{ item.user }}/.zshrc {{ item.user }}/.zshrc.bak
+    fi
+  become_user: "{{ 'root' if item.user == '/root' else ansible_user }}"
+  loop:
+    - { user: "/home/{{ ansible_user }}" }
+    - { user: "/root" }
 
 # Criar os links simbolicos com o stow
 - name: Criar os links simbólicos com o stow para ansible_user e root
-  ansible.builtin.shell: stow -d /home/{{ ansible_user }}/dotfiles -t {{ item.user }}/ {{ item.config }}
+  ansible.builtin.shell: stow -R -d /home/{{ ansible_user }}/dotfiles -t {{ item.user }}/ {{ item.config }}
   become: true
   become_user: "{{ 'root' if item.user == '/root' else ansible_user }}"
   args:
