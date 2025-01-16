@@ -3,6 +3,9 @@
   hosts: all
   gather_facts: true
   become: true
+  vars:
+    venv_path: /opt/venv
+
   tasks:
     - name: Incluir homebrew tasks para macOS
       ansible.builtin.include_tasks: roles/brew_macOS.yaml
@@ -13,7 +16,7 @@
       when: ansible_facts['os_family'] == 'Darwin'
 
     - name: Incluir tarefas para Linux se o sistema for Linux
-      ansible.builtin.include_tasks: roles/linux.yaml
+      ansible.builtin.include_tasks: roles/linux/tasks/main.yaml
       when: ansible_facts['os_family'] == 'Debian'
 
     - name: Mensagem para sistema operacional não suportado

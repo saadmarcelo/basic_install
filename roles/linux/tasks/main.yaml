@@ -1,5 +1,5 @@
 ---
-# TODO: linux config
+# TODO: linux confi
 # TODO: install packages
 
 # Installar o node para poder instalar as linter do Mason
@@ -46,6 +46,7 @@
     - zoxide
     - unzip
     - software-properties-common
+    - build-essential
     - eza
     - golang-go
     - nodejs
@@ -53,6 +54,47 @@
     - make
     - python3
     - python3-pip
+    - python3-apt
+
+- name: Garantir que o python3-venv está instalado
+  package:
+    name: python3-venv
+    state: present
+
+- name: Criar ambiente virtual para Python
+  command: python3 -m venv {{ venv_path }}
+  args:
+    creates: "{{ venv_path }}"
+
+- name: Atualizar pip, setuptools e wheel no venv
+  pip:
+    name:
+      - pip
+      - setuptools
+      - wheel
+    state: latest
+    virtualenv: "{{ venv_path }}"
+
+- name: Instalar o isort no ambiente virtual
+  pip:
+    name: isort
+    state: latest
+    virtualenv: "{{ venv_path }}"
+
+# - name: Atualizar pip, setuptools e wheel
+#   ansible.builtin.pip:
+#     name:
+#       - pip
+#       - setuptools
+#       - wheel
+#     state: latest
+#     executable: /usr/bin/pip3
+#
+# - name: Instalar o isort globalmente
+#   ansible.builtin.pip:
+#     name: isort
+#     state: latest
+#     executable: /usr/bin/pip3
 
 # Configurar o locale para en_us (fzf dependencies)
 - name: Configurar locale para en_US.UTF-8
