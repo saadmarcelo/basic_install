@@ -57,17 +57,17 @@
     - python3-apt
 
 - name: Garantir que o python3-venv está instalado
-  package:
+  ansible.builtin.package:
     name: python3-venv
     state: present
 
 - name: Criar ambiente virtual para Python
-  command: python3 -m venv {{ venv_path }}
+  ansible.builtin.command: python3 -m venv {{ venv_path }}
   args:
     creates: "{{ venv_path }}"
 
 - name: Atualizar pip, setuptools e wheel no venv
-  pip:
+  ansible.builtin.pip:
     name:
       - pip
       - setuptools
@@ -98,13 +98,13 @@
 
 # Configurar o locale para en_us (fzf dependencies)
 - name: Configurar locale para en_US.UTF-8
-  command: locale-gen en_US.UTF-8
+  ansible.builtin.command: locale-gen en_US.UTF-8
   args:
     creates: /usr/lib/locale/en_US.utf8
 
 # Definir locale como padrao (fzf dependencies)
 - name: Definir locale padrão no sistema
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/default/locale
     line: "{{ item }}"
     create: true
@@ -115,12 +115,12 @@
 
 # Aplicar configurações do locale (fzf dependencies)
 - name: Aplicar configurações de locale
-  command: update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+  ansible.builtin.command: update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
   when: ansible_os_family == 'Debian'
 
 # Recarregar o locale (fzf dependencies)
 - name: Recarregar locale
-  shell: source /etc/default/locale
+  ansible.builtin.shell: source /etc/default/locale
   args:
     executable: /bin/bash
 
