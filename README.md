@@ -28,8 +28,9 @@ Permissions: Admin/root access may be required for certain installations.
 
 Clone the Repository:
 
-git clone https://github.com/saadmarcelo/basic_install.git
-cd basic_install
+`git clone https://github.com/saadmarcelo/basic_install.git`
+
+`cd basic_install`
 
 Edit file hosts and change IP addres and ansible_user
 
