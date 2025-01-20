@@ -1,27 +1,5 @@
 # basic_install
 
-ansible to install: - nvim - tmux - eza - fzf - stow - bat
-
-Edit file hosts and change IP adress and ansible_user
-
-`ansible-playbook playbook.yaml -k -K`
-
--k user password
-
--K become password
-
-after instalation connect to destination and open
-
-`tmux`
-
-`crtl+b I`
-
-to install tmux plugins
-
-open nvim and wait nvim plugins instalation
-
-`nvim`
-
 Basic Install - A Simplified Installation Framework
 
 Welcome to Basic Install, your go-to solution for seamless and efficient software installation. This repository is designed to automate and simplify common installation tasks, making it an essential tool for developers, system administrators, and tech enthusiasts.
@@ -59,6 +37,22 @@ Run the Installer:
 
 `ansible-playbook playbook.yaml -k -K`
 
+-k user password
+
+-K become password
+
+after instalation connect to destination and open
+
+`tmux`
+
+`crtl+b I`
+
+to install tmux plugins
+
+open nvim and wait nvim plugins instalation
+
+`nvim`
+
 Follow On-Screen Instructions: The script will guide you through any additional setup.
 
 📦 Supported Software
@@ -67,19 +61,11 @@ The following software and services are supported out of the box:
 
 Development Tools (e.g., Git, Node.js, Python)
 
-Web Servers (e.g., Nginx, Apache)
-
-Databases (e.g., MySQL, PostgreSQL)
-
-Essential Utilities (e.g., Docker, Ansible, Vim)
+Essential Utilities (neovim, tmux, bat, zoxide, zsh, eza, fzf )
 
 🛠️ Customization
 
-Feel free to modify the install.sh script or other files in the repository to suit your specific needs. Contributions are welcome; check out the Contributing section below!
-
-📚 Documentation
-
-For detailed usage and customization instructions, refer to the Wiki.
+Feel free to modify the playbook.yaml script or other files in the repository to suit your specific needs. Contributions are welcome; check out the Contributing section below!
 
 🤝 Contributing
 
