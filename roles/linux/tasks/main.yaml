@@ -25,13 +25,13 @@
 
 # Remover versão antiga nvim
 - name: Remover a versão antiga nvim
-  ansible.builtin.apt:
+  ansible.builtin.package:
     name: neovim
     state: absent
 
 # Instala os pacotes necessarios
 - name: Install packages
-  ansible.builtin.apt:
+  ansible.builtin.package:
     name: "{{ item }}"
     state: present
   loop:
