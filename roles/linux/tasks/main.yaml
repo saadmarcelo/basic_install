@@ -49,6 +49,7 @@
     - build-essential
     - eza
     - golang-go
+    - npm
     - nodejs
     - locales
     - make
