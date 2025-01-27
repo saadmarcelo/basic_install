@@ -42,6 +42,7 @@
     - stow
     - tar
     - tmux
+    - ripgrep
     - zsh
     - bat
     - zoxide
