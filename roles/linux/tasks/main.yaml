@@ -40,6 +40,7 @@
     - neovim
     - git
     - stow
+    - tar
     - tmux
     - zsh
     - bat
@@ -81,21 +82,6 @@
     name: isort
     state: latest
     virtualenv: "{{ venv_path }}"
-
-# - name: Atualizar pip, setuptools e wheel
-#   ansible.builtin.pip:
-#     name:
-#       - pip
-#       - setuptools
-#       - wheel
-#     state: latest
-#     executable: /usr/bin/pip3
-#
-# - name: Instalar o isort globalmente
-#   ansible.builtin.pip:
-#     name: isort
-#     state: latest
-#     executable: /usr/bin/pip3
 
 # Configurar o locale para en_us (fzf dependencies)
 - name: Configurar locale para en_US.UTF-8
@@ -303,16 +289,6 @@
     dest: /usr/bin/
     remote_src: true
 
-# - name: Verificar se o arquivo .zshrc.pre-oh-my-zsh existe
-#   stat:
-#     path: ~/.zshrc.pre-oh-my-zsh
-#   register: pre_ohmyzsh_file
-#
-# - name: Mover .zshrc.pre-oh-my-zsh para .zshrc
-#   command: mv {{ item.home }}/.zshrc.pre-oh-my-zsh ~/.zshrc
-#   when: pre_ohmyzsh_file.stat.exists
-#   loop: "{{ users }}"
-#   become: "{{ item.name }}"
 # TODO: stow config
 
 - name: Remover ou renomear .zshrc existente
