@@ -75,13 +75,13 @@
       - pip
       - setuptools
       - wheel
-    state: latest
+    state: present
     virtualenv: "{{ venv_path }}"
 
 - name: Instalar o isort no ambiente virtual
-  pip:
+  ansible.builtin.pip:
     name: isort
-    state: latest
+    state: present
     virtualenv: "{{ venv_path }}"
 
 # Configurar o locale para en_us (fzf dependencies)
