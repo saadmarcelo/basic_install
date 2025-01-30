@@ -5,7 +5,7 @@
 # Installar o node para poder instalar as linter do Mason
 - name: Adicionar repositório NodeSource para Node.js 18.x
   ansible.builtin.shell: |
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    cuil -fsSL https://deb.nodesource.com/setup_18.x | bash -
   args:
     executable: /bin/bash
 
@@ -51,13 +51,31 @@
     - build-essential
     - eza
     - golang-go
-    - npm
     - nodejs
     - locales
     - make
     - python3
     - python3-pip
     - python3-apt
+
+- name: Check if Ubuntu Desktop is installed
+  ansible.builtin.shell: |
+    dpkg-query -W -f='${Status}' ubuntu-desktop 2>/dev/null || \
+    dpkg-query -W -f='${Status}' ubuntu-session 2>/dev/null || \
+    dpkg-query -W -f='${Status}' gnome-shell 2>/dev/null
+  register: ubuntu_desktop_status
+  changed_when: false
+  failed_when: false
+
+- name: Debug Ubuntu Desktop detection
+  ansible.builtin.debug:
+    msg: "Ubuntu Desktop status: {{ ubuntu_desktop_status.stdout }}"
+
+- name: Install npm if running on Ubuntu Desktop
+  ansible.builtin.package:
+    name: npm
+    state: present
+  when: "'install ok installed' in ubuntu_desktop_status.stdout"
 
 - name: Garantir que o python3-venv está instalado
   ansible.builtin.package:
