@@ -52,6 +52,7 @@
       - git
       - fzf
       - jq
+      - fd
       - lazygit
       - stow
       - tmux
