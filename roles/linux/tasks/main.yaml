@@ -42,6 +42,7 @@
     - stow
     - tar
     - tmux
+    - fd-find
     - ripgrep
     - zsh
     - bat
