@@ -36,6 +36,7 @@
     state: present
   loop:
     - wget
+    - npm
     - fontconfig
     - neovim
     - git
@@ -61,6 +62,7 @@
     - lua5.1
     - liblua5.1-0-dev
     - luarocks
+    
 
 - name: Check if Ubuntu Desktop is installed
   ansible.builtin.shell: |
