@@ -5,7 +5,7 @@
 # Installar o node para poder instalar as linter do Mason
 - name: Adicionar repositório NodeSource para Node.js 18.x
   ansible.builtin.shell: |
-    cuil -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
   args:
     executable: /bin/bash
 
