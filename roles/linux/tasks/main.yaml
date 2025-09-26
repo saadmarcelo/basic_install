@@ -47,6 +47,7 @@
     - ripgrep
     - zsh
     - bat
+    - wl-clipboard
     - zoxide
     - unzip
     - software-properties-common
