@@ -12,7 +12,7 @@
 # adicionar o repositorio do nvim
 - name: Adicionar o PPA oficial do Neovim
   ansible.builtin.apt_repository:
-    repo: ppa:neovim-ppa/unstable
+    repo: ppa:neovim-ppa/stable
     state: present
     update_cache: true
 
