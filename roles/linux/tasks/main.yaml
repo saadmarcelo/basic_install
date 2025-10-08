@@ -39,6 +39,7 @@
     - npm
     - fontconfig
     - neovim
+    - npm
     - git
     - stow
     - tar
