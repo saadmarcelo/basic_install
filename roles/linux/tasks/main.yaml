@@ -9,13 +9,6 @@
   args:
     executable: /bin/bash
 
-# adicionar o repositorio do nvim
-- name: Adicionar o PPA oficial do Neovim
-  ansible.builtin.apt_repository:
-    repo: ppa:neovim-ppa/stable
-    state: present
-    update_cache: true
-
 # Update repostorio
 - name: Update apt
   ansible.builtin.apt:
@@ -38,7 +31,6 @@
     - wget
     - npm
     - fontconfig
-    - neovim
     - npm
     - git
     - stow
@@ -64,7 +56,103 @@
     - lua5.1
     - liblua5.1-0-dev
     - luarocks
-    
+
+- name: Definir fallback da versao do Neovim 0.11.x
+  ansible.builtin.set_fact:
+    neovim_fallback_version: v0.11.3
+
+- name: Verificar versao instalada do Neovim
+  ansible.builtin.command: nvim --version
+  register: neovim_current_version
+  changed_when: false
+  failed_when: false
+
+- name: Consultar releases do Neovim
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/neovim/neovim/releases
+    return_content: true
+  register: neovim_releases
+  changed_when: false
+  failed_when: false
+
+- name: Definir release alvo do Neovim 0.11.x
+  ansible.builtin.set_fact:
+    neovim_release_tag: >-
+      {{
+        (
+          neovim_releases.json | default([])
+          | selectattr('tag_name', 'match', '^v0\.11\.\d+$')
+          | map(attribute='tag_name')
+          | list
+          | first
+        ) | default(neovim_fallback_version, true)
+      }}
+    neovim_release_version: >-
+      {{
+        (
+          (
+            neovim_releases.json | default([])
+            | selectattr('tag_name', 'match', '^v0\.11\.\d+$')
+            | map(attribute='tag_name')
+            | list
+            | first
+          ) | default(neovim_fallback_version, true)
+        ) | regex_replace('^v', '')
+      }}
+    neovim_installed_version: >-
+      {{
+        (
+          neovim_current_version.stdout | default('')
+          | regex_findall('NVIM v([0-9]+\.[0-9]+\.[0-9]+)')
+          | first
+        ) | default('')
+      }}
+
+- name: Verificar instalacao oficial atual do Neovim
+  ansible.builtin.stat:
+    path: /opt/nvim-linux-x86_64/bin/nvim
+  register: neovim_official_binary
+
+- name: Baixar tarball oficial do Neovim
+  ansible.builtin.get_url:
+    url: https://github.com/neovim/neovim/releases/download/{{ neovim_release_tag }}/nvim-linux-x86_64.tar.gz
+    dest: /tmp/nvim-linux-x86_64.tar.gz
+    mode: "0644"
+  when: neovim_installed_version != neovim_release_version or not neovim_official_binary.stat.exists
+
+- name: Remover instalacao anterior do Neovim oficial
+  ansible.builtin.file:
+    path: /opt/nvim-linux-x86_64
+    state: absent
+  when: neovim_installed_version != neovim_release_version or not neovim_official_binary.stat.exists
+
+- name: Instalar Neovim oficial 0.11.x
+  ansible.builtin.unarchive:
+    src: /tmp/nvim-linux-x86_64.tar.gz
+    dest: /opt
+    remote_src: true
+  when: neovim_installed_version != neovim_release_version or not neovim_official_binary.stat.exists
+
+- name: Garantir link do binario do Neovim
+  ansible.builtin.file:
+    src: /opt/nvim-linux-x86_64/bin/nvim
+    dest: /usr/local/bin/nvim
+    state: link
+    force: true
+
+- name: Remover tarball temporario do Neovim
+  ansible.builtin.file:
+    path: /tmp/nvim-linux-x86_64.tar.gz
+    state: absent
+  when: neovim_installed_version != neovim_release_version or not neovim_official_binary.stat.exists
+
+- name: Validar versao final do Neovim
+  ansible.builtin.command: nvim --version
+  register: neovim_final_version
+  changed_when: false
+  failed_when: >-
+    (neovim_final_version.stdout | default('')) is not match('^NVIM v0\.11\.')
+
 
 - name: Check if Ubuntu Desktop is installed
   ansible.builtin.shell: |
