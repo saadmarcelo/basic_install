@@ -29,7 +29,6 @@
     state: present
   loop:
     - wget
-    - npm
     - fontconfig
     - npm
     - git
@@ -57,9 +56,10 @@
     - liblua5.1-0-dev
     - luarocks
 
-- name: Definir fallback da versao do Neovim 0.11.x
+- name: Definir serie alvo do Neovim
   ansible.builtin.set_fact:
-    neovim_fallback_version: v0.11.3
+    neovim_version_series: "0.12"
+    neovim_fallback_version: v0.12.0
 
 - name: Verificar versao instalada do Neovim
   ansible.builtin.command: nvim --version
@@ -75,13 +75,13 @@
   changed_when: false
   failed_when: false
 
-- name: Definir release alvo do Neovim 0.11.x
+- name: Definir release alvo do Neovim
   ansible.builtin.set_fact:
     neovim_release_tag: >-
       {{
         (
           neovim_releases.json | default([])
-          | selectattr('tag_name', 'match', '^v0\.11\.\d+$')
+          | selectattr('tag_name', 'match', '^v' ~ neovim_version_series ~ '\\.\\d+$')
           | map(attribute='tag_name')
           | list
           | first
@@ -92,7 +92,7 @@
         (
           (
             neovim_releases.json | default([])
-            | selectattr('tag_name', 'match', '^v0\.11\.\d+$')
+            | selectattr('tag_name', 'match', '^v' ~ neovim_version_series ~ '\\.\\d+$')
             | map(attribute='tag_name')
             | list
             | first
@@ -126,7 +126,7 @@
     state: absent
   when: neovim_installed_version != neovim_release_version or not neovim_official_binary.stat.exists
 
-- name: Instalar Neovim oficial 0.11.x
+- name: Instalar Neovim oficial
   ansible.builtin.unarchive:
     src: /tmp/nvim-linux-x86_64.tar.gz
     dest: /opt
@@ -151,7 +151,7 @@
   register: neovim_final_version
   changed_when: false
   failed_when: >-
-    (neovim_final_version.stdout | default('')) is not match('^NVIM v0\.11\.')
+    (neovim_final_version.stdout | default('')) is not match('^NVIM v' ~ neovim_version_series ~ '\\.')
 
 
 - name: Check if Ubuntu Desktop is installed

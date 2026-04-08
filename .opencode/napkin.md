@@ -13,10 +13,13 @@
 - User wants Neovim version guarantees only on Linux, not macOS.
 - User only needs Linux `amd64` support.
 - Added a filesystem check so the playbook reinstalls Neovim when the official install path is missing, even if some other `nvim 0.11.x` is already on the machine.
+- User later changed the target version family from `0.11.x` to `0.12.x`; keep the version series easy to update.
+- Refactored the playbook so the Neovim series is controlled by one variable instead of repeated regex literals.
 
 **Learnings:**
 - This repo installs software through Ansible playbooks for macOS and Debian/Ubuntu.
 - `neovim` was previously installed from moving package repositories and was not version-guaranteed.
+- The Neovim version family may change quickly, so hardcoded series checks are a likely maintenance point.
 
 ## Patterns
 
