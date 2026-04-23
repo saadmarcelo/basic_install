@@ -7,12 +7,8 @@
     venv_path: /opt/venv
 
   tasks:
-    - name: Incluir homebrew tasks para macOS
-      ansible.builtin.include_tasks: roles/brew_macOS.yaml
-      when: ansible_facts['os_family'] == 'Darwin'
-
-    - name: Incluir zsh tasks para macOS
-      ansible.builtin.include_tasks: roles/zsh_macOS.yaml
+    - name: Incluir tarefas para macOS
+      ansible.builtin.include_tasks: roles/macos/tasks/main.yaml
       when: ansible_facts['os_family'] == 'Darwin'
 
     - name: Incluir tarefas para Linux se o sistema for Linux

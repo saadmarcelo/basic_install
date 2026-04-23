@@ -4,6 +4,22 @@
 
 ## Session Log
 
+### 2026-04-22 - Session 3
+
+**Mistakes:**
+- Ao montar o novo role de macOS, o primeiro rascunho deixava tarefas do Homebrew herdarem `become: true` do playbook principal, o que quebraria installs via brew.
+- Tambem comecei definindo `homebrew_bin` e `homebrew_prefix` no mesmo `set_fact`, o que e fragil quando um valor depende do outro.
+
+**Corrections:**
+- Role macOS refeito em `roles/macos/tasks/main.yaml`, com bootstrap unico e paridade funcional maior com Linux.
+- Homebrew agora suporta `/opt/homebrew` e `/usr/local`, roda sem `become` e usa install nao interativo.
+- Separei descoberta do binario/prefixo do Homebrew e validei tudo com `ansible-playbook --syntax-check` e testes estruturais em `tests/test_installation_playbooks.py`.
+- Validacao do Neovim no macOS agora exige `0.12+` apenas dentro da serie `0.x`, sem assumir compatibilidade futura com `1.x`.
+
+**Learnings:**
+- O playbook principal roda com `become: true`, entao todo role macOS que usa Homebrew precisa sobrescrever isso explicitamente nas tarefas de brew e no setup do usuario.
+- Para este repo, testes estruturais em `unittest` sao um jeito leve e util de proteger ambos os fluxos sem exigir provisionamento real de Linux/macOS.
+
 ### 2026-04-08 - Session 1
 
 **Mistakes:**
@@ -44,6 +60,7 @@
 - Prefer official release artifacts when a reproducible version family must be enforced.
 - For Node.js on Debian/Ubuntu, prefer one source of truth: either distro packages or NodeSource, not both for `nodejs`/`npm`.
 - For lazy.nvim-based configs, version the working `lazy-lock.json` when reproducibility across machines matters.
+- In this repo, keep macOS Homebrew tasks explicitly `become: false` even when the parent play sets `become: true`.
 
 ## Preferences
 

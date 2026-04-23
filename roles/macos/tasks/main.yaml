@@ -1,0 +1,245 @@
+- name: Verificar instalacao do Homebrew no Apple Silicon
+  ansible.builtin.stat:
+    path: /opt/homebrew/bin/brew
+  register: homebrew_apple_silicon
+
+- name: Verificar instalacao do Homebrew no Intel
+  ansible.builtin.stat:
+    path: /usr/local/bin/brew
+  register: homebrew_intel
+
+- name: Definir binario e prefixo do Homebrew
+  ansible.builtin.set_fact:
+    homebrew_bin: >-
+      {{
+        '/opt/homebrew/bin/brew'
+        if homebrew_apple_silicon.stat.exists else
+        (
+          '/usr/local/bin/brew'
+          if homebrew_intel.stat.exists else
+          (
+            '/opt/homebrew/bin/brew'
+            if ansible_architecture in ['arm64', 'aarch64'] else
+            '/usr/local/bin/brew'
+          )
+        )
+      }}
+    homebrew_exists: "{{ homebrew_apple_silicon.stat.exists or homebrew_intel.stat.exists }}"
+
+- name: Definir prefixo do Homebrew
+  ansible.builtin.set_fact:
+    homebrew_prefix: "{{ (homebrew_bin | dirname) | dirname }}"
+
+- name: Instalar Homebrew
+  become: false
+  ansible.builtin.shell: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  environment:
+    NONINTERACTIVE: "1"
+  when: not homebrew_exists
+
+- name: Atualizar facts do Homebrew apos instalacao
+  ansible.builtin.stat:
+    path: "{{ homebrew_bin }}"
+  register: homebrew_after_install
+
+- name: Falhar se o Homebrew nao estiver disponivel
+  ansible.builtin.fail:
+    msg: "Homebrew nao foi instalado corretamente em {{ homebrew_bin }}"
+  when: not homebrew_after_install.stat.exists
+
+- name: Definir variaveis de ambiente do Homebrew
+  ansible.builtin.set_fact:
+    homebrew_environment:
+      PATH: "{{ homebrew_prefix }}/bin:{{ homebrew_prefix }}/sbin:{{ ansible_env.PATH }}"
+
+- name: Atualizar Homebrew
+  become: false
+  community.general.homebrew:
+    update_homebrew: true
+  environment: "{{ homebrew_environment }}"
+
+- name: Instalar casks do Homebrew
+  become: false
+  community.general.homebrew_cask:
+    name:
+      - font-sauce-code-pro-nerd-font
+      - kitty
+      - rectangle
+    state: present
+  environment: "{{ homebrew_environment }}"
+
+- name: Instalar pacotes base no macOS
+  become: false
+  community.general.homebrew:
+    name:
+      - bat
+      - eza
+      - fd
+      - fzf
+      - git
+      - go
+      - lazygit
+      - lua
+      - luarocks
+      - neovim
+      - node
+      - python
+      - ripgrep
+      - stow
+      - tmux
+      - wget
+      - yazi
+      - zoxide
+      - zsh
+    state: present
+  environment: "{{ homebrew_environment }}"
+
+- name: Definir paths do usuario alvo no macOS
+  ansible.builtin.set_fact:
+    target_user: "{{ ansible_user }}"
+    target_home: "/Users/{{ ansible_user }}"
+    target_shell: "{{ homebrew_prefix }}/bin/zsh"
+    dotfiles_repo: "https://github.com/saadmarcelo/dotfiles.git"
+    dotfiles_path: "/Users/{{ ansible_user }}/dotfiles"
+
+- name: Garantir que o zsh do Homebrew esteja em /etc/shells
+  ansible.builtin.lineinfile:
+    path: /etc/shells
+    line: "{{ target_shell }}"
+    state: present
+
+- name: Definir zsh como shell padrao do usuario
+  ansible.builtin.command: "chsh -s {{ target_shell }} {{ target_user }}"
+  changed_when: false
+
+- name: Garantir ambiente virtual Python
+  ansible.builtin.command: "{{ homebrew_prefix }}/bin/python3 -m venv {{ venv_path }}"
+  args:
+    creates: "{{ venv_path }}"
+  environment: "{{ homebrew_environment }}"
+
+- name: Atualizar ferramentas do pip no venv
+  ansible.builtin.pip:
+    name:
+      - pip
+      - setuptools
+      - wheel
+    state: present
+    virtualenv: "{{ venv_path }}"
+
+- name: Instalar isort no venv
+  ansible.builtin.pip:
+    name: isort
+    state: present
+    virtualenv: "{{ venv_path }}"
+
+- name: Verificar instalacao do Oh My Zsh
+  ansible.builtin.stat:
+    path: "{{ target_home }}/.oh-my-zsh"
+  register: oh_my_zsh_check
+  become: false
+
+- name: Instalar Oh My Zsh sem interacao
+  become: false
+  ansible.builtin.shell: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+  environment:
+    HOME: "{{ target_home }}"
+    USER: "{{ target_user }}"
+    RUNZSH: "no"
+    CHSH: "no"
+    KEEP_ZSHRC: "yes"
+  when: not oh_my_zsh_check.stat.exists
+
+- name: Clonar dotfiles
+  become: false
+  ansible.builtin.git:
+    repo: "{{ dotfiles_repo }}"
+    dest: "{{ dotfiles_path }}"
+    update: true
+
+- name: Clonar plugins do zsh
+  become: false
+  ansible.builtin.git:
+    repo: "{{ item.repo }}"
+    dest: "{{ target_home }}/.oh-my-zsh/custom/plugins/{{ item.name }}"
+    depth: 1
+    update: true
+  loop:
+    - { name: "zsh-autosuggestions", repo: "https://github.com/zsh-users/zsh-autosuggestions" }
+    - { name: "zsh-completions", repo: "https://github.com/zsh-users/zsh-completions" }
+    - { name: "zsh-syntax-highlighting", repo: "https://github.com/zsh-users/zsh-syntax-highlighting.git" }
+
+- name: Criar diretorio do tmux
+  become: false
+  ansible.builtin.file:
+    path: "{{ target_home }}/.tmux"
+    state: directory
+    mode: "0755"
+
+- name: Instalar TPM
+  become: false
+  ansible.builtin.git:
+    repo: https://github.com/tmux-plugins/tpm.git
+    dest: "{{ target_home }}/.tmux/plugins/tpm"
+    update: true
+
+- name: Garantir permissao de execucao do install_plugins
+  become: false
+  ansible.builtin.file:
+    path: "{{ target_home }}/.tmux/plugins/tpm/bin/install_plugins"
+    mode: "0755"
+    state: file
+
+- name: Preservar .zshrc local antes do stow
+  become: false
+  ansible.builtin.shell: |
+    if [ -f "{{ target_home }}/.zshrc" ] && [ ! -L "{{ target_home }}/.zshrc" ]; then
+      mv "{{ target_home }}/.zshrc" "{{ target_home }}/.zshrc.bak"
+    fi
+  args:
+    executable: /bin/bash
+
+- name: Aplicar dotfiles com stow
+  become: false
+  ansible.builtin.shell: stow -R -d "{{ dotfiles_path }}" -t "{{ target_home }}" "{{ item }}"
+  args:
+    executable: /bin/bash
+  loop:
+    - nvim
+    - tmux
+    - zshrc
+    - kitty
+
+- name: Instalar plugins do tmux
+  become: false
+  ansible.builtin.shell: "{{ target_home }}/.tmux/plugins/tpm/bin/install_plugins"
+  args:
+    executable: /bin/bash
+  environment:
+    HOME: "{{ target_home }}"
+    USER: "{{ target_user }}"
+    TMUX_PLUGIN_MANAGER_PATH: "{{ target_home }}/.tmux/plugins"
+
+- name: Instalar integracoes do fzf
+  become: false
+  ansible.builtin.shell: "{{ homebrew_prefix }}/opt/fzf/install --all --no-bash --no-fish"
+  args:
+    executable: /bin/bash
+  environment:
+    HOME: "{{ target_home }}"
+    USER: "{{ target_user }}"
+
+- name: Consultar versao do Neovim no macOS
+  ansible.builtin.command: "{{ homebrew_prefix }}/bin/nvim --version"
+  register: macos_neovim_version
+  changed_when: false
+  environment: "{{ homebrew_environment }}"
+
+- name: Validar Neovim 0.12+ no macOS
+  ansible.builtin.assert:
+    that:
+      - >-
+        (macos_neovim_version.stdout | default('')) is match('^NVIM v0\.(1[2-9]|[2-9][0-9])\.')
+    fail_msg: >-
+      Neovim no macOS precisa ser 0.12+; encontrado:
+      {{ (macos_neovim_version.stdout_lines | default(['desconhecido']))[0] }}
