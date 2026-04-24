@@ -24,6 +24,8 @@ Package Manager: apt, brew, or others depending on your OS.
 
 Permissions: Admin/root access may be required for certain installations.
 
+Ansible collections: this project requires `community.general`.
+
 🔧 Installation
 
 Clone the Repository:
@@ -33,6 +35,10 @@ Clone the Repository:
 `cd basic_install`
 
 Edit file hosts and change IP addres and ansible_user
+
+Install required Ansible collections:
+
+`ansible-galaxy collection install -r collections/requirements.yml`
 
 Run the Installer:
 
@@ -55,6 +61,19 @@ open nvim and wait nvim plugins instalation
 `nvim`
 
 Follow On-Screen Instructions: The script will guide you through any additional setup.
+
+macOS notes:
+
+- The macOS playbook supports both Apple Silicon (`/opt/homebrew`) and Intel (`/usr/local`) Homebrew installs.
+- The macOS installation validates that Neovim is at least `0.12.x` and fails if an older `0.x` version is installed.
+
+Tests:
+
+`python3 -m unittest discover -s tests -v`
+
+Syntax check:
+
+`ansible-playbook playbook.yaml --syntax-check -i localhost, -c local`
 
 📦 Supported Software
 

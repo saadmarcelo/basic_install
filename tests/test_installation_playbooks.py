@@ -23,6 +23,13 @@ class PlaybookRoutingTests(unittest.TestCase):
         self.assertIn("ansible_facts['os_family'] == 'Debian'", content)
 
 
+class AnsibleDependencyTests(unittest.TestCase):
+    def test_repo_declares_community_general_collection(self) -> None:
+        content = read_text("collections/requirements.yml")
+        self.assertIn("collections:", content)
+        self.assertIn("- name: community.general", content)
+
+
 class LinuxInstallationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

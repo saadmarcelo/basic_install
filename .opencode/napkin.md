@@ -15,10 +15,13 @@
 - Homebrew agora suporta `/opt/homebrew` e `/usr/local`, roda sem `become` e usa install nao interativo.
 - Separei descoberta do binario/prefixo do Homebrew e validei tudo com `ansible-playbook --syntax-check` e testes estruturais em `tests/test_installation_playbooks.py`.
 - Validacao do Neovim no macOS agora exige `0.12+` apenas dentro da serie `0.x`, sem assumir compatibilidade futura com `1.x`.
+- README atualizado para documentar `community.general`, comando de instalacao das collections e comandos de teste/syntax-check.
 
 **Learnings:**
 - O playbook principal roda com `become: true`, entao todo role macOS que usa Homebrew precisa sobrescrever isso explicitamente nas tarefas de brew e no setup do usuario.
 - Para este repo, testes estruturais em `unittest` sao um jeito leve e util de proteger ambos os fluxos sem exigir provisionamento real de Linux/macOS.
+- O fluxo macOS depende da collection `community.general`; vale declarar isso em `collections/requirements.yml` para nao depender do ambiente local.
+- Nesta versao do `ansible-galaxy`, `collection install` nao suporta `--dry-run`.
 
 ### 2026-04-08 - Session 1
 
