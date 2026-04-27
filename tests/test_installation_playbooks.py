@@ -104,6 +104,10 @@ class MacOSInstallationTests(unittest.TestCase):
         self.assertIn("^NVIM v0\\.(1[2-9]|[2-9][0-9])\\.", self.content)
         self.assertIn("Neovim no macOS precisa ser 0.12+", self.content)
 
+    def test_macos_installs_flycut_and_raycast(self) -> None:
+        self.assertIn("- flycut", self.content)
+        self.assertIn("- raycast", self.content)
+
 
 if __name__ == "__main__":
     unittest.main()

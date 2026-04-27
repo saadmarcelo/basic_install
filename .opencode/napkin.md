@@ -4,6 +4,19 @@
 
 ## Session Log
 
+### 2026-04-27 - Session 4
+
+**Mistakes:**
+- None yet.
+
+**Corrections:**
+- Added Flycut (clipboard manager for developers) and Raycast (control your tools) as Homebrew casks to macOS role.
+- Added structural test for both casks in `tests/test_installation_playbooks.py`.
+
+**Learnings:**
+- Both casks are available in official Homebrew repository: `flycut` (v1.9.6) and `raycast`.
+- `community.general.homebrew_cask` module handles cask installation with `become: false`.
+
 ### 2026-04-22 - Session 3
 
 **Mistakes:**

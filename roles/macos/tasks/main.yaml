@@ -63,7 +63,9 @@
   community.general.homebrew_cask:
     name:
       - font-sauce-code-pro-nerd-font
+      - flycut
       - kitty
+      - raycast
       - rectangle
     state: present
   environment: "{{ homebrew_environment }}"
