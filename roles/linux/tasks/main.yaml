@@ -197,6 +197,21 @@
     state: present
     virtualenv: "{{ venv_path }}"
 
+- name: Garantir que o pipx está instalado
+  ansible.builtin.pip:
+    name: pipx
+    state: present
+    extra_args: --break-system-packages
+
+- name: Instalar o ansible-lint via pipx
+  ansible.builtin.shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    pipx install ansible-lint --pipx-args='--python python3'
+    pipx ensurepath
+  args:
+    executable: /bin/bash
+  become: false
+
 # Configurar o locale para en_us (fzf dependencies)
 - name: Configurar locale para en_US.UTF-8
   ansible.builtin.command: locale-gen en_US.UTF-8
