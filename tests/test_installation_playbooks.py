@@ -47,7 +47,7 @@ class LinuxInstallationTests(unittest.TestCase):
     def test_linux_keeps_dotfiles_and_tmux_setup(self) -> None:
         self.assertIn("https://github.com/saadmarcelo/dotfiles.git", self.content)
         self.assertIn("https://github.com/tmux-plugins/tpm.git", self.content)
-        self.assertIn("stow -R -d /home/{{ ansible_user }}/dotfiles", self.content)
+        self.assertIn("stow -R -d {{ target_home }}/dotfiles", self.content)
 
 
 class MacOSInstallationTests(unittest.TestCase):
@@ -91,7 +91,7 @@ class MacOSInstallationTests(unittest.TestCase):
     def test_macos_installs_tmux_and_fzf_integrations(self) -> None:
         self.assertIn("https://github.com/tmux-plugins/tpm.git", self.content)
         self.assertIn("install_plugins", self.content)
-        self.assertIn("{{ homebrew_prefix }}/opt/fzf/install --all --no-bash --no-fish", self.content)
+        self.assertIn("{{ homebrew_prefix }}/opt/fzf/install --key-bindings --completion --no-update-rc", self.content)
 
     def test_macos_keeps_python_venv_and_neovim_validation(self) -> None:
         self.assertIn("{{ homebrew_prefix }}/bin/python3 -m venv {{ venv_path }}", self.content)

@@ -2,6 +2,20 @@
 # TODO: linux confi
 # TODO: install packages
 
+# Usuario alvo: ansible_user, ou o usuario que abriu a conexao (SUDO_USER) quando nao definido
+- name: Definir usuario alvo
+  ansible.builtin.set_fact:
+    target_user: "{{ ansible_user | default(ansible_env.SUDO_USER | default(ansible_user_id)) }}"
+
+- name: Consultar home do usuario alvo
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ target_user }}"
+
+- name: Definir home do usuario alvo
+  ansible.builtin.set_fact:
+    target_home: "{{ getent_passwd[target_user][4] }}"
+
 # Installar o node para poder instalar as linter do Mason
 - name: Adicionar repositório NodeSource para Node.js 22.x
   ansible.builtin.shell: |
@@ -257,13 +271,13 @@
 - name: Clonar repositório dotfiles
   ansible.builtin.git:
     repo: https://github.com/saadmarcelo/dotfiles.git
-    dest: /home/{{ ansible_user }}/dotfiles/
+    dest: "{{ target_home }}/dotfiles/"
     update: true
   become: false
 
 # Mudar para o zsh
 - name: Definir o zsh como shell padrao do usuário
-  ansible.builtin.command: chsh -s /bin/zsh {{ ansible_user }}
+  ansible.builtin.command: chsh -s /bin/zsh {{ target_user }}
 
 # Garantir que o zsh esta no /etc/shells
 - name: Garantir que o zsh esta no /etc/shells
@@ -293,9 +307,13 @@
 # Define lista de usuarios a serem instalados
 - name: Define list of users
   ansible.builtin.set_fact:
-    users:
-      - { name: "{{ ansible_user }}", home: "/home/{{ ansible_user }}" }
-      - { name: "root", home: "/root" }
+    users: >-
+      {{
+        [
+          { 'name': target_user, 'home': target_home },
+          { 'name': 'root', 'home': '/root' }
+        ] | unique
+      }}
 
 # Check se oh my zsh ja esta instalado
 - name: Check if Oh My Zsh is already installed
@@ -326,6 +344,7 @@
     depth: 1
   loop: "{{ users }}"
   become: true
+  become_user: "{{ item.name }}"
 
 # Clone zsh-completions plugin
 - name: Clone zsh-completions plugin
@@ -335,6 +354,7 @@
     depth: 1
   loop: "{{ users }}"
   become: true
+  become_user: "{{ item.name }}"
 
 # Clone zsh-syntax-highlighting plugin
 - name: Clone zsh-syntax-highlighting plugin
@@ -344,12 +364,13 @@
     depth: 1
   loop: "{{ users }}"
   become: true
+  become_user: "{{ item.name }}"
 
 # Set zsh as default shell for each user
 - name: Set zsh as default shell
   ansible.builtin.shell: chsh -s $(which zsh) {{ item }}
   loop:
-    - "{{ ansible_user }}"
+    - "{{ target_user }}"
     - root
 
 # Criar um link simbolico para o bat
@@ -389,9 +410,9 @@
 # Create .tmux folder
 - name: Create .tmux folder
   ansible.builtin.file:
-    path: /home/{{ ansible_user }}/.tmux/
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
+    path: "{{ target_home }}/.tmux/"
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
     state: directory
     mode: "0755"
 
@@ -399,27 +420,16 @@
 - name: Download TPM plugin
   ansible.builtin.git:
     repo: https://github.com/tmux-plugins/tpm.git
-    dest: /home/{{ ansible_user }}/.tmux/plugins/tpm
+    dest: "{{ target_home }}/.tmux/plugins/tpm"
     update: true
   become: false
 
 # Garantir permissao de execucao do scritp de instalcao dos plugins do tmux
 - name: Garantir permissão de execução para o script install_plugins
   ansible.builtin.file:
-    path: /home/{{ ansible_user }}/.tmux/plugins/tpm/bin/install_plugins
+    path: "{{ target_home }}/.tmux/plugins/tpm/bin/install_plugins"
     mode: "0755"
     state: file
-  become: false
-
-# Instalar plugins do Tmux
-- name: Instalar plugins do Tmux
-  ansible.builtin.shell: /home/{{ ansible_user }}/.tmux/plugins/tpm/bin/install_plugins
-  args:
-    executable: /bin/bash
-  environment:
-    TMUX_PLUGIN_MANAGER_PATH: /home/{{ ansible_user }}/.tmux/plugins
-    HOME: /home/{{ ansible_user }}
-    USER: "{{ ansible_user }}"
   become: false
 
 # Instalar o fzf
@@ -436,22 +446,33 @@
     if [ -f {{ item.user }}/.zshrc ] && [ ! -L {{ item.user }}/.zshrc ]; then
       mv {{ item.user }}/.zshrc {{ item.user }}/.zshrc.bak
     fi
-  become_user: "{{ 'root' if item.user == '/root' else ansible_user }}"
+  become_user: "{{ 'root' if item.user == '/root' else target_user }}"
   loop:
-    - { user: "/home/{{ ansible_user }}" }
+    - { user: "{{ target_home }}" }
     - { user: "/root" }
 
 # Criar os links simbolicos com o stow
 - name: Criar os links simbólicos com o stow para ansible_user e root
-  ansible.builtin.shell: stow -R -d /home/{{ ansible_user }}/dotfiles -t {{ item.user }}/ {{ item.config }}
+  ansible.builtin.shell: stow -R -d {{ target_home }}/dotfiles -t {{ item.user }}/ {{ item.config }}
   become: true
-  become_user: "{{ 'root' if item.user == '/root' else ansible_user }}"
+  become_user: "{{ 'root' if item.user == '/root' else target_user }}"
   args:
     executable: /bin/bash
   loop:
-    - { user: "/home/{{ ansible_user }}", config: "tmux" }
-    - { user: "/home/{{ ansible_user }}", config: "nvim" }
-    - { user: "/home/{{ ansible_user }}", config: "zshrc" }
+    - { user: "{{ target_home }}", config: "tmux" }
+    - { user: "{{ target_home }}", config: "nvim" }
+    - { user: "{{ target_home }}", config: "zshrc" }
     - { user: "/root", config: "tmux" }
     - { user: "/root", config: "nvim" }
     - { user: "/root", config: "zshrc" }
+
+# Instalar plugins do Tmux (depois do stow: precisa do tmux.conf com a lista de plugins)
+- name: Instalar plugins do Tmux
+  ansible.builtin.shell: "{{ target_home }}/.tmux/plugins/tpm/bin/install_plugins"
+  args:
+    executable: /bin/bash
+  environment:
+    TMUX_PLUGIN_MANAGER_PATH: "{{ target_home }}/.tmux/plugins"
+    HOME: "{{ target_home }}"
+    USER: "{{ target_user }}"
+  become: false

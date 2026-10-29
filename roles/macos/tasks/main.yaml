@@ -96,13 +96,17 @@
     state: present
   environment: "{{ homebrew_environment }}"
 
+# ansible_user pode estar indefinido em execucao local; SUDO_USER e o usuario que abriu a conexao
+- name: Definir usuario alvo no macOS
+  ansible.builtin.set_fact:
+    target_user: "{{ ansible_user | default(ansible_env.SUDO_USER | default(ansible_user_id)) }}"
+
 - name: Definir paths do usuario alvo no macOS
   ansible.builtin.set_fact:
-    target_user: "{{ ansible_user }}"
-    target_home: "/Users/{{ ansible_user }}"
+    target_home: "/Users/{{ target_user }}"
     target_shell: "{{ homebrew_prefix }}/bin/zsh"
     dotfiles_repo: "https://github.com/saadmarcelo/dotfiles.git"
-    dotfiles_path: "/Users/{{ ansible_user }}/dotfiles"
+    dotfiles_path: "/Users/{{ target_user }}/dotfiles"
 
 - name: Garantir que o zsh do Homebrew esteja em /etc/shells
   ansible.builtin.lineinfile:
@@ -224,7 +228,7 @@
 
 - name: Instalar integracoes do fzf
   become: false
-  ansible.builtin.shell: "{{ homebrew_prefix }}/opt/fzf/install --all --no-bash --no-fish"
+  ansible.builtin.shell: "{{ homebrew_prefix }}/opt/fzf/install --key-bindings --completion --no-update-rc --no-bash --no-fish"
   args:
     executable: /bin/bash
   environment:
