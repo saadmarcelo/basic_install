@@ -103,7 +103,15 @@ Itens P1 resolvidos têm teste normal; os P2 abertos têm teste `expectedFailure
 13. Linux: sem checagem de `ansible_architecture` (tarballs são amd64); `eza` não existe em Ubuntu 22.04 ou anterior, e derruba a task de pacotes inteira.
 14. `chsh` no macOS roda como root por herança de `become` e com `changed_when: false` (esconde mudanças).
 
-### P3 — segurança e higiene
+### P3 — segurança e higiene (itens corrigidos em 2026-10-29, exceto os "aceitos" abaixo)
+
+Aceitos/pendentes: (15) Homebrew, Oh My Zsh e NodeSource continuam vindo de URL móvel sem checksum
+(só o NodeSource deixou de ser `curl | bash` e usa arquivo em diretório temporário privado); (17) `hosts`
+mantém IP e chave de exemplo (README corrigido); (18) mantido `callbacks_enabled=profile_tasks`;
+(20) `.opencode/napkin.md` mantido; (21) `var-naming[no-role-prefix]` ignorado em `.ansible-lint`
+porque as variáveis são compartilhadas por design — `ansible-lint` passa no perfil `production`.
+Mudanças de comportamento: `stow -R` virou `stow -v` (idempotente; `changed` só quando cria links);
+repositórios git fixados em branch (`main`/`master`); token opcional `github_token` para a API.
 15. `curl | bash` de Homebrew, Oh My Zsh (`master`) e NodeSource sem checksum/pin; API do GitHub sem token (limite 60/h por IP) em duas tarefas.
 16. Tarballs em `/tmp` com nome previsível, baixados como root.
 17. `hosts`: IP privado fixo e `id_rsa` no repo; README manda usar `-k` (senha) mas o inventário usa chave.
@@ -120,7 +128,7 @@ Itens P1 resolvidos têm teste normal; os P2 abertos têm teste `expectedFailure
 - AC-2. `ansible-lint` sem violações (ou ignores documentados).
 - AC-3. Segunda execução em VM Ubuntu 24.04 limpa e em macOS: `changed=0`.
 - AC-4. Após o playbook, `tmux` já abre com plugins instalados e `nvim --version` é 0.12.x.
-- AC-5. `python -m unittest discover -s tests` verde, sem `expectedFailure` restantes após o backlog P1–P2.
+- AC-5. `python -m unittest discover -s tests` verde, sem `expectedFailure` (atingido).
 
 ## 11. Estratégia de testes
 

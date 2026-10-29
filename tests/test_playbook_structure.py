@@ -214,6 +214,12 @@ class MacOSRoleTests(unittest.TestCase):
         self.assertEqual(task["ansible.builtin.user"]["shell"], "{{ target_shell }}")
         self.assertFalse(any("chsh" in str(t) for t in self.tasks))
 
+    def test_all_git_tasks_pin_a_branch(self) -> None:
+        for task in self.tasks:
+            if module_of(task) == "ansible.builtin.git":
+                with self.subTest(task=task["name"]):
+                    self.assertIn(task["ansible.builtin.git"]["version"], {"main", "master"})
+
     def test_macos_neovim_check_is_read_only(self) -> None:
         self.assertIs(find_task(self.tasks, "Consultar versao do Neovim no macOS")["changed_when"], False)
 
@@ -288,7 +294,7 @@ class LinuxRoleTests(unittest.TestCase):
     def test_nodesource_and_distro_npm_are_not_mixed_unconditionally(self) -> None:
         npm = find_task(self.tasks, "Install npm if running on Ubuntu Desktop")
         self.assertIn("ubuntu_desktop_status", npm["when"])
-        packages = find_task(self.tasks, "Install packages")["loop"]
+        packages = find_task(self.tasks, "Install packages")["ansible.builtin.package"]["name"]
         self.assertIn("nodejs", packages)
         self.assertNotIn("npm", packages)
 
@@ -350,8 +356,32 @@ class LinuxRoleTests(unittest.TestCase):
         self.assertEqual(task["vars"]["fzf_version"], "0.57.0")
 
     def test_eza_failure_does_not_abort_package_install(self) -> None:
-        self.assertNotIn("eza", find_task(self.tasks, "Install packages")["loop"])
+        self.assertNotIn("eza", find_task(self.tasks, "Install packages")["ansible.builtin.package"]["name"])
         self.assertIs(find_task(self.tasks, "Install eza (quando disponivel)")["failed_when"], False)
+
+    def test_downloads_use_private_temp_dir_not_fixed_tmp_paths(self) -> None:
+        self.assertIn("ansible.builtin.tempfile", find_task(self.tasks, "Criar diretorio temporario"))
+        for task in self.tasks:
+            with self.subTest(task=task["name"]):
+                self.assertNotIn(" /tmp/", " " + str(task))
+        self.assertLess(index_of(self.tasks, "Criar diretorio temporario"),
+                        index_of(self.tasks, "Baixar tarball oficial do Neovim"))
+        self.assertEqual(self.tasks[-1]["name"], "Remover diretorio temporario")
+
+    def test_nodesource_script_is_not_piped_to_bash(self) -> None:
+        self.assertFalse(any("curl" in str(t) and "| bash" in str(t) for t in self.tasks))
+        self.assertIn("creates", find_task(self.tasks, "Adicionar repositório NodeSource para Node.js 22.x")["args"])
+
+    def test_github_api_calls_accept_optional_token(self) -> None:
+        for name in ["Consultar releases do Neovim", "Consultar release do lazygit"]:
+            with self.subTest(task=name):
+                self.assertIn("github_token", str(find_task(self.tasks, name)))
+
+    def test_all_git_tasks_pin_a_branch(self) -> None:
+        for task in self.tasks:
+            if module_of(task) == "ansible.builtin.git":
+                with self.subTest(task=task["name"]):
+                    self.assertIn(task["ansible.builtin.git"]["version"], {"main", "master"})
 
     def test_oh_my_zsh_install_is_guarded_by_existing_check(self) -> None:
         task = find_task(self.tasks, "Install Oh My Zsh for users")
@@ -433,11 +463,13 @@ class RepositoryConfigTests(unittest.TestCase):
         if "profile_tasks" in self.cfg["defaults"].get("callbacks_enabled", ""):
             self.assertIn("ansible.posix", declared)
 
-    @unittest.expectedFailure
-    def test_library_path_exists(self) -> None:
-        self.assertTrue(Path(self.cfg["defaults"]["library"]).exists())
+    def test_library_path_is_unset_or_exists(self) -> None:
+        library = self.cfg["defaults"].get("library")
+        self.assertTrue(library is None or Path(library).exists())
 
-    @unittest.expectedFailure
+    def test_python_interpreter_is_not_hardcoded(self) -> None:
+        self.assertEqual(self.cfg["defaults"]["interpreter_python"], "auto_silent")
+
     def test_legacy_macos_yaml_is_not_left_as_dead_code(self) -> None:
         path = ROOT / "macOS.yaml"
         if path.exists():

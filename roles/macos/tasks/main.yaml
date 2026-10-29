@@ -35,6 +35,7 @@
   ansible.builtin.shell: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   environment:
     NONINTERACTIVE: "1"
+  changed_when: true
   when: not homebrew_exists
 
 - name: Atualizar facts do Homebrew apos instalacao
@@ -156,12 +157,14 @@
     RUNZSH: "no"
     CHSH: "no"
     KEEP_ZSHRC: "yes"
+  changed_when: true
   when: not oh_my_zsh_check.stat.exists
 
 - name: Clonar dotfiles
   become: false
   ansible.builtin.git:
     repo: "{{ dotfiles_repo }}"
+    version: main
     dest: "{{ dotfiles_path }}"
     update: true
 
@@ -169,6 +172,7 @@
   become: false
   ansible.builtin.git:
     repo: "{{ item.repo }}"
+    version: master
     dest: "{{ target_home }}/.oh-my-zsh/custom/plugins/{{ item.name }}"
     depth: 1
     update: true
@@ -188,6 +192,7 @@
   become: false
   ansible.builtin.git:
     repo: https://github.com/tmux-plugins/tpm.git
+    version: master
     dest: "{{ target_home }}/.tmux/plugins/tpm"
     update: true
 
@@ -203,15 +208,20 @@
   ansible.builtin.shell: |
     if [ -f "{{ target_home }}/.zshrc" ] && [ ! -L "{{ target_home }}/.zshrc" ]; then
       mv "{{ target_home }}/.zshrc" "{{ target_home }}/.zshrc.bak"
+      echo moved
     fi
   args:
     executable: /bin/bash
+  register: zshrc_backup
+  changed_when: "'moved' in zshrc_backup.stdout"
 
 - name: Aplicar dotfiles com stow
   become: false
-  ansible.builtin.shell: stow -R -d "{{ dotfiles_path }}" -t "{{ target_home }}" "{{ item }}"
+  ansible.builtin.shell: stow -v -d "{{ dotfiles_path }}" -t "{{ target_home }}" "{{ item }}"
   args:
     executable: /bin/bash
+  register: stow_result
+  changed_when: "'LINK:' in stow_result.stderr"
   loop:
     - nvim
     - tmux
@@ -223,6 +233,8 @@
   ansible.builtin.shell: "{{ target_home }}/.tmux/plugins/tpm/bin/install_plugins"
   args:
     executable: /bin/bash
+  register: tmux_plugins
+  changed_when: "'Installing' in tmux_plugins.stdout"
   environment:
     HOME: "{{ target_home }}"
     USER: "{{ target_user }}"
@@ -233,6 +245,7 @@
   ansible.builtin.shell: "{{ homebrew_prefix }}/opt/fzf/install --key-bindings --completion --no-update-rc --no-bash --no-fish"
   args:
     executable: /bin/bash
+  changed_when: false
   environment:
     HOME: "{{ target_home }}"
     USER: "{{ target_user }}"

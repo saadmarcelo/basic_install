@@ -22,12 +22,31 @@
     that: ansible_architecture in ['x86_64', 'amd64']
     fail_msg: "Arquitetura {{ ansible_architecture }} nao suportada; apenas amd64"
 
+# Diretorio temporario com nome imprevisivel (em vez de caminhos fixos em /tmp)
+- name: Criar diretorio temporario
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: basic_install
+  register: linux_tmp
+  changed_when: false
+
+- name: Permitir leitura do diretorio temporario (script do Oh My Zsh roda como outros usuarios)
+  ansible.builtin.file:
+    path: "{{ linux_tmp.path }}"
+    state: directory
+    mode: "0755"
+
 # Installar o node para poder instalar as linter do Mason
+- name: Baixar script do repositorio NodeSource para Node.js 22.x
+  ansible.builtin.get_url:
+    url: https://deb.nodesource.com/setup_22.x
+    dest: "{{ linux_tmp.path }}/nodesource_setup.sh"
+    mode: "0755"
+
 - name: Adicionar repositório NodeSource para Node.js 22.x
-  ansible.builtin.shell: |
-    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  ansible.builtin.command: bash {{ linux_tmp.path }}/nodesource_setup.sh
   args:
-    executable: /bin/bash
+    creates: /etc/apt/sources.list.d/nodesource.sources
 
 # Update repostorio
 - name: Update apt
@@ -45,34 +64,33 @@
 # Instala os pacotes necessarios
 - name: Install packages
   ansible.builtin.package:
-    name: "{{ item }}"
+    name:
+      - wget
+      - fontconfig
+      - git
+      - stow
+      - tar
+      - tmux
+      - fd-find
+      - ripgrep
+      - zsh
+      - bat
+      - wl-clipboard
+      - zoxide
+      - unzip
+      - software-properties-common
+      - build-essential
+      - golang-go
+      - nodejs
+      - locales
+      - make
+      - python3
+      - python3-pip
+      - python3-apt
+      - lua5.1
+      - liblua5.1-0-dev
+      - luarocks
     state: present
-  loop:
-    - wget
-    - fontconfig
-    - git
-    - stow
-    - tar
-    - tmux
-    - fd-find
-    - ripgrep
-    - zsh
-    - bat
-    - wl-clipboard
-    - zoxide
-    - unzip
-    - software-properties-common
-    - build-essential
-    - golang-go
-    - nodejs
-    - locales
-    - make
-    - python3
-    - python3-pip
-    - python3-apt
-    - lua5.1
-    - liblua5.1-0-dev
-    - luarocks
 
 # eza nao existe nos repositorios do Ubuntu < 24.04 / Debian < 13; nao derruba o resto
 - name: Install eza (quando disponivel)
@@ -101,6 +119,7 @@
 - name: Consultar releases do Neovim
   ansible.builtin.uri:
     url: https://api.github.com/repos/neovim/neovim/releases
+    headers: "{{ {'Authorization': 'Bearer ' ~ github_token} if github_token is defined else {} }}"
     return_content: true
   register: neovim_releases
   changed_when: false
@@ -147,7 +166,7 @@
 - name: Baixar tarball oficial do Neovim
   ansible.builtin.get_url:
     url: https://github.com/neovim/neovim/releases/download/{{ neovim_release_tag }}/nvim-linux-x86_64.tar.gz
-    dest: /tmp/nvim-linux-x86_64.tar.gz
+    dest: "{{ linux_tmp.path }}/nvim-linux-x86_64.tar.gz"
     mode: "0644"
   when: neovim_installed_version != neovim_release_version or not neovim_official_binary.stat.exists
 
@@ -159,7 +178,7 @@
 
 - name: Instalar Neovim oficial
   ansible.builtin.unarchive:
-    src: /tmp/nvim-linux-x86_64.tar.gz
+    src: "{{ linux_tmp.path }}/nvim-linux-x86_64.tar.gz"
     dest: /opt
     remote_src: true
   when: neovim_installed_version != neovim_release_version or not neovim_official_binary.stat.exists
@@ -173,7 +192,7 @@
 
 - name: Remover tarball temporario do Neovim
   ansible.builtin.file:
-    path: /tmp/nvim-linux-x86_64.tar.gz
+    path: "{{ linux_tmp.path }}/nvim-linux-x86_64.tar.gz"
     state: absent
   when: neovim_installed_version != neovim_release_version or not neovim_official_binary.stat.exists
 
@@ -242,6 +261,8 @@
     pipx ensurepath
   args:
     executable: /bin/bash
+  register: pipx_ansible_lint
+  changed_when: "'installed package' in pipx_ansible_lint.stdout"
   become: false
 
 # Configurar o locale para en_us (fzf dependencies)
@@ -256,15 +277,18 @@
     path: /etc/default/locale
     line: "{{ item }}"
     create: true
+    mode: "0644"
+  register: locale_lines
   loop:
     - "LANG=en_US.UTF-8"
     - "LANGUAGE=en_US.UTF-8"
     - "LC_ALL=en_US.UTF-8"
 
 # Aplicar configurações do locale (fzf dependencies)
-- name: Aplicar configurações de locale
+- name: Aplicar configurações de locale  # noqa: no-handler
   ansible.builtin.command: update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
-  when: ansible_os_family == 'Debian'
+  changed_when: true
+  when: locale_lines is changed
 
 - name: Verificar lazygit instalado
   ansible.builtin.stat:
@@ -275,6 +299,7 @@
 - name: Consultar release do lazygit
   ansible.builtin.uri:
     url: https://api.github.com/repos/jesseduffield/lazygit/releases/latest
+    headers: "{{ {'Authorization': 'Bearer ' ~ github_token} if github_token is defined else {} }}"
     return_content: true
   register: lazygit_release
   changed_when: false
@@ -304,6 +329,7 @@
 - name: Clonar repositório dotfiles
   ansible.builtin.git:
     repo: https://github.com/saadmarcelo/dotfiles.git
+    version: main
     dest: "{{ target_home }}/dotfiles/"
     update: true
   become: false
@@ -321,7 +347,8 @@
 - name: Download Oh My Zsh installation script
   ansible.builtin.get_url:
     url: https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh
-    dest: /tmp/install_ohmyzsh.sh
+    dest: "{{ linux_tmp.path }}/install_ohmyzsh.sh"
+    mode: "0644"
 
 # Define lista de usuarios a serem instalados
 - name: Define list of users
@@ -346,11 +373,13 @@
   ansible.builtin.shell: |
     export HOME={{ item.home }}
     export USER={{ item.name }}
-    sh /tmp/install_ohmyzsh.sh --unattended
+    sh {{ linux_tmp.path }}/install_ohmyzsh.sh --unattended
   args:
     executable: /bin/bash
   loop: "{{ users }}"
+  become: true
   become_user: "{{ item.name }}"
+  changed_when: true
   environment:
     ZSH: "{{ item.home }}/.oh-my-zsh"
   when: not (ohmyzsh_status.results | selectattr('item.name', 'equalto', item.name) | first).stat.exists
@@ -359,6 +388,7 @@
 - name: Clone zsh-autosuggestions plugin
   ansible.builtin.git:
     repo: https://github.com/zsh-users/zsh-autosuggestions
+    version: master
     dest: "{{ item.home }}/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
     depth: 1
   loop: "{{ users }}"
@@ -369,6 +399,7 @@
 - name: Clone zsh-completions plugin
   ansible.builtin.git:
     repo: https://github.com/zsh-users/zsh-completions
+    version: master
     dest: "{{ item.home }}/.oh-my-zsh/custom/plugins/zsh-completions"
     depth: 1
   loop: "{{ users }}"
@@ -379,6 +410,7 @@
 - name: Clone zsh-syntax-highlighting plugin
   ansible.builtin.git:
     repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
+    version: master
     dest: "{{ item.home }}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
     depth: 1
   loop: "{{ users }}"
@@ -410,10 +442,9 @@
 
 # Fonte ja instalada?
 - name: Verificar SauceCodePro Nerd Font
-  ansible.builtin.shell: fc-list | grep -qi 'SauceCodePro'
+  ansible.builtin.command: fc-list
   register: font_check
   changed_when: false
-  failed_when: false
 
 - name: Garantir diretorio de fontes
   ansible.builtin.file:
@@ -425,28 +456,28 @@
 - name: Baixar SauceCodePro Nerd Font
   ansible.builtin.get_url:
     url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/SourceCodePro.zip
-    dest: /tmp/SourceCodePro.zip
+    dest: "{{ linux_tmp.path }}/SourceCodePro.zip"
     mode: "0644"
-  when: font_check.rc != 0
+  when: "'saucecodepro' not in (font_check.stdout | lower)"
 
 # Unzip font file
 - name: Descompactar o arquivo da fonte
   ansible.builtin.unarchive:
-    src: /tmp/SourceCodePro.zip
+    src: "{{ linux_tmp.path }}/SourceCodePro.zip"
     dest: /usr/local/share/fonts
     remote_src: true
-  when: font_check.rc != 0
+  when: "'saucecodepro' not in (font_check.stdout | lower)"
 
 # update font cache
 - name: Atualizar cache de fontes
   ansible.builtin.command: fc-cache -fv
   changed_when: true
-  when: font_check.rc != 0
+  when: "'saucecodepro' not in (font_check.stdout | lower)"
 
 # Remove ZIP file
 - name: Remover o arquivo ZIP
   ansible.builtin.file:
-    path: /tmp/SourceCodePro.zip
+    path: "{{ linux_tmp.path }}/SourceCodePro.zip"
     state: absent
 
 # TODO: tmux config
@@ -464,6 +495,7 @@
 - name: Download TPM plugin
   ansible.builtin.git:
     repo: https://github.com/tmux-plugins/tpm.git
+    version: master
     dest: "{{ target_home }}/.tmux/plugins/tpm"
     update: true
   become: false
@@ -498,7 +530,11 @@
   ansible.builtin.shell: |
     if [ -f {{ item.user }}/.zshrc ] && [ ! -L {{ item.user }}/.zshrc ]; then
       mv {{ item.user }}/.zshrc {{ item.user }}/.zshrc.bak
+      echo moved
     fi
+  register: zshrc_backup
+  changed_when: "'moved' in zshrc_backup.stdout"
+  become: true
   become_user: "{{ 'root' if item.user == '/root' else target_user }}"
   loop:
     - { user: "{{ target_home }}" }
@@ -506,7 +542,9 @@
 
 # Criar os links simbolicos com o stow
 - name: Criar os links simbólicos com o stow para ansible_user e root
-  ansible.builtin.shell: stow -R -d {{ target_home }}/dotfiles -t {{ item.user }}/ {{ item.config }}
+  ansible.builtin.shell: stow -v -d {{ target_home }}/dotfiles -t {{ item.user }}/ {{ item.config }}
+  register: stow_result
+  changed_when: "'LINK:' in stow_result.stderr"
   become: true
   become_user: "{{ 'root' if item.user == '/root' else target_user }}"
   args:
@@ -524,8 +562,16 @@
   ansible.builtin.shell: "{{ target_home }}/.tmux/plugins/tpm/bin/install_plugins"
   args:
     executable: /bin/bash
+  register: tmux_plugins
+  changed_when: "'Installing' in tmux_plugins.stdout"
   environment:
     TMUX_PLUGIN_MANAGER_PATH: "{{ target_home }}/.tmux/plugins"
     HOME: "{{ target_home }}"
     USER: "{{ target_user }}"
   become: false
+
+- name: Remover diretorio temporario
+  ansible.builtin.file:
+    path: "{{ linux_tmp.path }}"
+    state: absent
+  changed_when: false

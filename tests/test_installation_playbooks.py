@@ -47,7 +47,7 @@ class LinuxInstallationTests(unittest.TestCase):
     def test_linux_keeps_dotfiles_and_tmux_setup(self) -> None:
         self.assertIn("https://github.com/saadmarcelo/dotfiles.git", self.content)
         self.assertIn("https://github.com/tmux-plugins/tpm.git", self.content)
-        self.assertIn("stow -R -d {{ target_home }}/dotfiles", self.content)
+        self.assertIn("stow -v -d {{ target_home }}/dotfiles", self.content)
 
 
 class MacOSInstallationTests(unittest.TestCase):
@@ -86,7 +86,7 @@ class MacOSInstallationTests(unittest.TestCase):
         self.assertIn("https://github.com/zsh-users/zsh-autosuggestions", self.content)
         self.assertIn("https://github.com/zsh-users/zsh-completions", self.content)
         self.assertIn("https://github.com/zsh-users/zsh-syntax-highlighting.git", self.content)
-        self.assertIn('stow -R -d "{{ dotfiles_path }}" -t "{{ target_home }}"', self.content)
+        self.assertIn('stow -v -d "{{ dotfiles_path }}" -t "{{ target_home }}"', self.content)
 
     def test_macos_installs_tmux_and_fzf_integrations(self) -> None:
         self.assertIn("https://github.com/tmux-plugins/tpm.git", self.content)

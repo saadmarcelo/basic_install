@@ -1,0 +1,5 @@
+---
+# As tarefas em roles/* compartilham variaveis de proposito (target_user, homebrew_prefix...),
+# entao o prefixo de role exigido por var-naming[no-role-prefix] nao se aplica aqui.
+skip_list:
+  - var-naming[no-role-prefix]
