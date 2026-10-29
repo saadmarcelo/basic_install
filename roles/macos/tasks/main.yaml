@@ -74,6 +74,7 @@
   become: false
   community.general.homebrew:
     name:
+      - ansible-lint
       - bat
       - eza
       - fd
@@ -115,8 +116,9 @@
     state: present
 
 - name: Definir zsh como shell padrao do usuario
-  ansible.builtin.command: "chsh -s {{ target_shell }} {{ target_user }}"
-  changed_when: false
+  ansible.builtin.user:
+    name: "{{ target_user }}"
+    shell: "{{ target_shell }}"
 
 - name: Garantir ambiente virtual Python
   ansible.builtin.command: "{{ homebrew_prefix }}/bin/python3 -m venv {{ venv_path }}"

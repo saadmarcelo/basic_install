@@ -209,6 +209,11 @@ class MacOSRoleTests(unittest.TestCase):
             with self.subTest(banner=banner):
                 self.assertEqual(bool(re.match(pattern, banner)), ok)
 
+    def test_default_shell_uses_user_module(self) -> None:
+        task = find_task(self.tasks, "Definir zsh como shell padrao do usuario")
+        self.assertEqual(task["ansible.builtin.user"]["shell"], "{{ target_shell }}")
+        self.assertFalse(any("chsh" in str(t) for t in self.tasks))
+
     def test_macos_neovim_check_is_read_only(self) -> None:
         self.assertIs(find_task(self.tasks, "Consultar versao do Neovim no macOS")["changed_when"], False)
 
@@ -218,7 +223,6 @@ class MacOSRoleTests(unittest.TestCase):
             "ansible.builtin.shell"]
         self.assertNotIn("--all", command)
 
-    @unittest.expectedFailure
     def test_ansible_lint_is_installed_like_on_linux(self) -> None:
         self.assertTrue(any("ansible-lint" in str(task) for task in self.tasks))
 
@@ -332,6 +336,23 @@ class LinuxRoleTests(unittest.TestCase):
             "Atualizar cache de fontes", "Remover o arquivo ZIP"]]
         self.assertEqual(order, sorted(order))
 
+    def test_font_steps_run_only_when_font_missing(self) -> None:
+        for name in ["Baixar SauceCodePro Nerd Font", "Descompactar o arquivo da fonte",
+                     "Atualizar cache de fontes"]:
+            with self.subTest(task=name):
+                self.assertIn("font_check", find_task(self.tasks, name)["when"])
+        self.assertLess(index_of(self.tasks, "Garantir diretorio de fontes"),
+                        index_of(self.tasks, "Descompactar o arquivo da fonte"))
+
+    def test_fzf_reinstalls_only_when_version_differs(self) -> None:
+        task = find_task(self.tasks, "Instalar o fzf")
+        self.assertIn("fzf_current_version", task["when"])
+        self.assertEqual(task["vars"]["fzf_version"], "0.57.0")
+
+    def test_eza_failure_does_not_abort_package_install(self) -> None:
+        self.assertNotIn("eza", find_task(self.tasks, "Install packages")["loop"])
+        self.assertIs(find_task(self.tasks, "Install eza (quando disponivel)")["failed_when"], False)
+
     def test_oh_my_zsh_install_is_guarded_by_existing_check(self) -> None:
         task = find_task(self.tasks, "Install Oh My Zsh for users")
         self.assertIn("ohmyzsh_status", task["when"])
@@ -350,32 +371,27 @@ class LinuxRoleTests(unittest.TestCase):
                 task = find_task(self.tasks, name)
                 self.assertEqual(task["become_user"], "{{ item.name }}")
 
-    @unittest.expectedFailure
-    def test_chsh_runs_once_and_after_etc_shells_is_updated(self) -> None:
-        chsh = [i for i, t in enumerate(self.tasks) if "chsh" in str(t)]
-        self.assertEqual(len(chsh), 1)
-        self.assertGreater(chsh[0], index_of(self.tasks, "Garantir que o zsh esta no /etc/shells"))
+    def test_default_shell_set_once_via_user_module_after_etc_shells(self) -> None:
+        self.assertFalse(any("chsh" in str(task) for task in self.tasks))
+        shell_tasks = [i for i, t in enumerate(self.tasks) if "shell" in t.get("ansible.builtin.user", {})]
+        self.assertEqual(len(shell_tasks), 1)
+        self.assertGreater(shell_tasks[0], index_of(self.tasks, "Garantir que o zsh esta no /etc/shells"))
 
-    @unittest.expectedFailure
-    def test_shell_check_does_not_use_literal_dollar_shell_with_command_module(self) -> None:
-        task = find_task(self.tasks, "Verificar o shell atual")
-        self.assertNotEqual(task["ansible.builtin.command"], "echo $SHELL")
+    def test_no_literal_dollar_shell_check(self) -> None:
+        self.assertFalse(any("echo $SHELL" in str(task) for task in self.tasks))
 
-    @unittest.expectedFailure
     def test_locale_reload_is_not_a_noop_source(self) -> None:
         names = [t["name"] for t in self.tasks]
         self.assertNotIn("Recarregar locale", names)
 
-    @unittest.expectedFailure
     def test_lazygit_install_is_idempotent(self) -> None:
         task = find_task(self.tasks, "Install lazygit")
-        self.assertIn("creates", task.get("args", {}))
+        self.assertIn("creates", task["ansible.builtin.unarchive"])
+        self.assertIn("lazygit_binary", task["when"])
 
-    @unittest.expectedFailure
     def test_fd_find_gets_fd_alias_like_bat(self) -> None:
         self.assertTrue(any("fdfind" in str(task) for task in self.tasks))
 
-    @unittest.expectedFailure
     def test_architecture_is_asserted_before_amd64_downloads(self) -> None:
         self.assertTrue(any("ansible_architecture" in str(task) for task in self.tasks))
 
@@ -427,7 +443,6 @@ class RepositoryConfigTests(unittest.TestCase):
         if path.exists():
             self.assertTrue(yaml.safe_load(path.read_text(encoding="utf-8")))
 
-    @unittest.expectedFailure
     def test_gitignore_excludes_python_bytecode(self) -> None:
         content = (ROOT / ".gitignore").read_text()
         self.assertIn("__pycache__", content)

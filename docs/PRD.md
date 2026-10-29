@@ -93,7 +93,7 @@ Itens P1 resolvidos têm teste normal; os P2 abertos têm teste `expectedFailure
 5. macOS: `target_user`/`target_home` dependem de `ansible_user`, indefinido no uso local (linha do localhost está comentada no `hosts`). Usar `ansible_facts['user_id']`.
 6. Linux: `/home/{{ ansible_user }}` assumido; quebra com `ansible_user=root` (lista `users` duplica root) ou home não padrão.
 
-### P2 — idempotência e correção
+### P2 — idempotência e correção (itens 7–14 corrigidos em 2026-10-29; `yazi` segue só no macOS, `wget` já existia no Linux)
 7. Linux: `chsh` executado duas vezes (linha 266 antes de garantir `/etc/shells`, e linha 350), sem `changed_when`.
 8. Linux: "Recarregar locale" com `source` em subshell não faz nada; "Verificar o shell atual" usa `command: echo $SHELL` (sem expansão, imprime literal).
 9. Linux: lazygit roda toda vez, baixa no CWD, usa `sudo` dentro de `become`, sem `pipefail`, versão flutuante.

@@ -16,6 +16,12 @@
   ansible.builtin.set_fact:
     target_home: "{{ getent_passwd[target_user][4] }}"
 
+# Os binarios baixados (Neovim, lazygit, fzf) sao amd64
+- name: Validar arquitetura amd64
+  ansible.builtin.assert:
+    that: ansible_architecture in ['x86_64', 'amd64']
+    fail_msg: "Arquitetura {{ ansible_architecture }} nao suportada; apenas amd64"
+
 # Installar o node para poder instalar as linter do Mason
 - name: Adicionar repositório NodeSource para Node.js 22.x
   ansible.builtin.shell: |
@@ -57,7 +63,6 @@
     - unzip
     - software-properties-common
     - build-essential
-    - eza
     - golang-go
     - nodejs
     - locales
@@ -68,6 +73,19 @@
     - lua5.1
     - liblua5.1-0-dev
     - luarocks
+
+# eza nao existe nos repositorios do Ubuntu < 24.04 / Debian < 13; nao derruba o resto
+- name: Install eza (quando disponivel)
+  ansible.builtin.apt:
+    name: eza
+    state: present
+  register: eza_install
+  failed_when: false
+
+- name: Avisar quando eza nao estiver disponivel
+  ansible.builtin.debug:
+    msg: "eza indisponivel nos repositorios desta distribuicao; instale manualmente"
+  when: eza_install is failed
 
 - name: Definir serie alvo do Neovim
   ansible.builtin.set_fact:
@@ -248,22 +266,37 @@
   ansible.builtin.command: update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
   when: ansible_os_family == 'Debian'
 
-# Recarregar o locale (fzf dependencies)
-- name: Recarregar locale
-  ansible.builtin.shell: source /etc/default/locale
-  args:
-    executable: /bin/bash
+- name: Verificar lazygit instalado
+  ansible.builtin.stat:
+    path: /usr/local/bin/lazygit
+  register: lazygit_binary
 
-# Install lazygit
+# Install lazygit (uma vez; o binario existente e mantido)
+- name: Consultar release do lazygit
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/jesseduffield/lazygit/releases/latest
+    return_content: true
+  register: lazygit_release
+  changed_when: false
+  failed_when: false
+  when: not lazygit_binary.stat.exists
+
+- name: Definir versao do lazygit
+  ansible.builtin.set_fact:
+    lazygit_version: "{{ (lazygit_release.json | default({})).tag_name | default(lazygit_fallback_version) | regex_replace('^v', '') }}"
+  vars:
+    lazygit_fallback_version: v0.44.1
+  when: not lazygit_binary.stat.exists
+
 - name: Install lazygit
-  ansible.builtin.shell: |
-    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
-    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
-    tar xf lazygit.tar.gz lazygit
-    sudo install lazygit -D -t /usr/local/bin/
-    rm -f lazygit.tar.gz lazygit
-  args:
-    executable: /bin/bash
+  ansible.builtin.unarchive:
+    src: "https://github.com/jesseduffield/lazygit/releases/download/v{{ lazygit_version }}/lazygit_{{ lazygit_version }}_Linux_x86_64.tar.gz"
+    dest: /usr/local/bin
+    include:
+      - lazygit
+    remote_src: true
+    creates: /usr/local/bin/lazygit
+  when: not lazygit_binary.stat.exists
 
 # TODO: clone dotfiles repository
 
@@ -275,26 +308,12 @@
     update: true
   become: false
 
-# Mudar para o zsh
-- name: Definir o zsh como shell padrao do usuário
-  ansible.builtin.command: chsh -s /bin/zsh {{ target_user }}
-
 # Garantir que o zsh esta no /etc/shells
 - name: Garantir que o zsh esta no /etc/shells
   ansible.builtin.lineinfile:
     path: /etc/shells
     line: /bin/zsh
     state: present
-
-# Verifica o shell atual
-- name: Verificar o shell atual
-  ansible.builtin.command: echo $SHELL
-  register: current_shell
-
-# Exibir o shell
-- name: Exibir o shell atual
-  ansible.builtin.debug:
-    msg: "shell atual: {{ current_shell.stdout }}"
 
 # TODO: oh my zsh config
 
@@ -366,12 +385,12 @@
   become: true
   become_user: "{{ item.name }}"
 
-# Set zsh as default shell for each user
+# Set zsh as default shell for each user (idempotente, depois de /etc/shells)
 - name: Set zsh as default shell
-  ansible.builtin.shell: chsh -s $(which zsh) {{ item }}
-  loop:
-    - "{{ target_user }}"
-    - root
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    shell: /bin/zsh
+  loop: "{{ users }}"
 
 # Criar um link simbolico para o bat
 - name: Criar link simbolico para o bat
@@ -380,13 +399,35 @@
     dest: /usr/bin/bat
     state: link
 
+# Debian instala o binario do fd-find como fdfind
+- name: Criar link simbolico para o fd
+  ansible.builtin.file:
+    src: /usr/bin/fdfind
+    dest: /usr/local/bin/fd
+    state: link
+
 # TODO: install font
+
+# Fonte ja instalada?
+- name: Verificar SauceCodePro Nerd Font
+  ansible.builtin.shell: fc-list | grep -qi 'SauceCodePro'
+  register: font_check
+  changed_when: false
+  failed_when: false
+
+- name: Garantir diretorio de fontes
+  ansible.builtin.file:
+    path: /usr/local/share/fonts
+    state: directory
+    mode: "0755"
 
 # Download saucedcodepro font
 - name: Baixar SauceCodePro Nerd Font
   ansible.builtin.get_url:
     url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/SourceCodePro.zip
     dest: /tmp/SourceCodePro.zip
+    mode: "0644"
+  when: font_check.rc != 0
 
 # Unzip font file
 - name: Descompactar o arquivo da fonte
@@ -394,10 +435,13 @@
     src: /tmp/SourceCodePro.zip
     dest: /usr/local/share/fonts
     remote_src: true
+  when: font_check.rc != 0
 
 # update font cache
 - name: Atualizar cache de fontes
   ansible.builtin.command: fc-cache -fv
+  changed_when: true
+  when: font_check.rc != 0
 
 # Remove ZIP file
 - name: Remover o arquivo ZIP
@@ -432,12 +476,21 @@
     state: file
   become: false
 
-# Instalar o fzf
+# Instalar o fzf (versao fixa; reinstala apenas se a versao mudar)
+- name: Verificar versao do fzf
+  ansible.builtin.command: fzf --version
+  register: fzf_current_version
+  changed_when: false
+  failed_when: false
+
 - name: Instalar o fzf
   ansible.builtin.unarchive:
-    src: https://github.com/junegunn/fzf/releases/download/v0.57.0/fzf-0.57.0-linux_amd64.tar.gz
+    src: "https://github.com/junegunn/fzf/releases/download/v{{ fzf_version }}/fzf-{{ fzf_version }}-linux_amd64.tar.gz"
     dest: /usr/bin/
     remote_src: true
+  vars:
+    fzf_version: "0.57.0"
+  when: (fzf_current_version.stdout | default('')) is not match('^' ~ fzf_version ~ ' ')
 
 # TODO: stow config
 
